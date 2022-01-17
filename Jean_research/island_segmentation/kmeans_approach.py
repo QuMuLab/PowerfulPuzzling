@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import cv2
 
-img = cv2.imread('our_p.png', cv2.IMREAD_UNCHANGED)
+img = cv2.imread('mu_p.jpg', cv2.IMREAD_UNCHANGED)
 vectorized = img.reshape((-1,3))
 kmeans = KMeans(n_clusters=2, n_init=10, max_iter=1000).fit(vectorized)
 centers = np.uint8(kmeans.cluster_centers_)
