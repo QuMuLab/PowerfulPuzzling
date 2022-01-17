@@ -7,10 +7,10 @@ import cv2
 
 from fcmeans import FCM
 
-img = cv2.imread('our_p.png', cv2.IMREAD_UNCHANGED)
+img = cv2.imread('mu_p.jpg', cv2.IMREAD_UNCHANGED)
 vectorized = img.reshape((-1,3))
 
-fcm = FCM(n_clusters=2, m=2)
+fcm = FCM(n_clusters=2, m=2) # m determines tolerance for how fuzzy
 fcm.fit(vectorized)
 centers = np.uint8(fcm.centers)
 labels = centers[fcm.predict(vectorized)]
