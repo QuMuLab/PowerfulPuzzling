@@ -1,4 +1,4 @@
-"""This is where everthing is run from"""
+"""This is where everything is run from"""
 
 from border import *
 from matching import *
