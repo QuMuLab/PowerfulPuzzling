@@ -8,7 +8,7 @@ import numpy as np
 import cv2
 
 #%% opening image and applying adaptive threshold
-puzzle = np.array(Image.open('rawr.png').convert('RGBA'))
+puzzle = np.array(Image.open('/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/dataset/starry_night/edge_case.JPG').convert('RGBA'))
 
 blocksize=11
 c=13
@@ -17,7 +17,7 @@ thr = cv2.adaptiveThreshold(thr, 255, 0, 1, blocksize, c)
 thr = cv2.GaussianBlur(thr, (5,5), 1)
 
 
-#%% finding the border of thresholded image:
+#%% Finding the border of thresholded image:
 cntrs, _ = cv2.findContours(thr, 0, 1)
 srt = sorted([[cnt.shape[0], i] for i, cnt in enumerate(cntrs)], reverse=True)[:15]
 biggest = [cntrs[s[1]] for s in srt]
@@ -29,7 +29,7 @@ smooth = filters.median_filter(fill.astype('uint8'), size=10)
 trimmed, _ = cv2.findContours(smooth, 0, 1)
 cv2.drawContours(smooth, trimmed, -1, color=0, thickness=15)
 
-#%% updating contours after smoothing
+#%% Updating contours after smoothing
 contours, _ = cv2.findContours(smooth, 0, 1)
 
 #%% Matching the smoothed contours with original image
@@ -84,7 +84,7 @@ for pos, dim in zip(s_pos, s_dims):
     ax.add_patch(rect)
 plt.show()
 
-#%% plotting the tiles individually:
+#%% Plotting the tiles individually:
 fig, ax = plt.subplots(2,4, dpi=80)
 ax[0,0].imshow(tiles[0])
 ax[0,1].imshow(tiles[1])
@@ -93,3 +93,6 @@ ax[0,3].imshow(tiles[3])
 
 [axi.set_axis_off() for axi in ax.ravel()]
 plt.show()
+
+import pickle
+pickle.dump(contours, open("contours_(edge_case.JPG).pickle", "wb"))
