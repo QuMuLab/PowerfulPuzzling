@@ -43,9 +43,7 @@ class SuperPixelizer(object):
         # Load up the image and remove the alpha channel
         from skimage.transform import rescale, resize, downscale_local_mean
         image = img_as_float(io.imread(image_path))
-        print(image.shape)
         image = rescale(image, self.scale, anti_aliasing=False, channel_axis=2)
-        print(image.shape)
         if(image.shape[-1] == 4):
             image = image[:,:,:3]
 
@@ -189,12 +187,16 @@ class SuperPixelizer(object):
             ax.add_line(l)
 
 
-
-impath = "rawr.png"
+import time
+impath = "myimage.png"
 s = SuperPixelizer(1000, max_num_iter=100, scale=0.5)
+start_time = time.time()
 segs = s.extract_superpixels(impath)
-labels = s.cluster(impath, segs, n_clusters=8, plot=True)
-
+print(time.time() - start_time)
+start_time = time.time()
+labels = s.cluster(impath, segs, n_clusters=2, plot=True)
+print(time.time() - start_time)
+start_time = time.time()
 # loop over the unique segment values
 # Melt background pixel
 background = mode(labels)
@@ -207,6 +209,7 @@ for (i, segVal) in enumerate(np.unique(segs)):
 
 labels = [0] + [x for x in labels if x > 0]
 unique = np.unique(segs)
+print(time.time() - start_time)
 s.plot_graph(segs, impath)
 
 s.plot_segments(impath, segs)
