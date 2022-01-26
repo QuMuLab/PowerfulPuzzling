@@ -8,8 +8,7 @@ import numpy as np
 import cv2
 
 #%% opening image and applying adaptive threshold
-puzzle = np.array(Image.open('C:\\Users\\Jean\\Desktop\\Undergrad\\2022 Winter\\CISC 499\\PowerfulPuzzling\\dataset\\starry_night\\edge_case.JPG'
-    ).convert('RGBA'))
+puzzle = np.array(Image.open('rawr.png').convert('RGBA'))
 
 blocksize=11
 c=13
@@ -21,16 +20,16 @@ thr = cv2.GaussianBlur(thr, (5,5), 1)
 #%% finding the border of thresholded image:
 cntrs, _ = cv2.findContours(thr, 0, 1)
 srt = sorted([[cnt.shape[0], i] for i, cnt in enumerate(cntrs)], reverse=True)[:15]
-biggest = [cntrs[s[1]] for s in srt]  
+biggest = [cntrs[s[1]] for s in srt]
 fill = cv2.drawContours(np.zeros(puzzle.shape[:2]), biggest, -1, 255, thickness=cv2.FILLED)
 
 
 #%% Smoothing out the edges of each puzzle piece by drawing a black (color=0) contour around each piece
-smooth = filters.median_filter(fill.astype('uint8'), size=10) 
+smooth = filters.median_filter(fill.astype('uint8'), size=10)
 trimmed, _ = cv2.findContours(smooth, 0, 1)
 cv2.drawContours(smooth, trimmed, -1, color=0, thickness=15)
 
-#%% updating contours after smoothing 
+#%% updating contours after smoothing
 contours, _ = cv2.findContours(smooth, 0, 1)
 
 #%% Matching the smoothed contours with original image
@@ -45,11 +44,11 @@ for i in range(len(contours)):
         x, y, w, h = cv2.boundingRect(contours[i])
         shape, tile = np.zeros(puzzle.shape[:2]), np.zeros((h, w,4), 'uint8')
 
-        cv2.drawContours(shape, [contours[i]], -1, color=1, thickness=-1)   
+        cv2.drawContours(shape, [contours[i]], -1, color=1, thickness=-1)
         shape = (puzzle * shape[:,:,None])[y:y+h, x:x+w, :]
 
-        tile[:,:] = shape   
-        tiles.append(tile) 
+        tile[:,:] = shape
+        tiles.append(tile)
         tile_centers.append((h//2+y, w//2+x))
 
         print('Success: ({}, {}) ({}, {})'.format(x, y, w, h))
@@ -69,6 +68,10 @@ f_dims = np.array(f_dims)
 fig, ax = plt.subplots()
 
 # Display the image
+print(smooth.shape)
+for point in contours[0]:
+    x, y = point[0]
+    smooth[y, x] = 0.5
 ax.imshow(smooth, cmap='gray')
 
 # Create a Rectangle patch
@@ -87,9 +90,6 @@ ax[0,0].imshow(tiles[0])
 ax[0,1].imshow(tiles[1])
 ax[0,2].imshow(tiles[2])
 ax[0,3].imshow(tiles[3])
-ax[1,0].imshow(tiles[4])
-ax[1,1].imshow(tiles[5])
-ax[1,2].imshow(tiles[6])
 
 [axi.set_axis_off() for axi in ax.ravel()]
 plt.show()
