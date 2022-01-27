@@ -1,7 +1,8 @@
 """This is where everything is run from"""
 
-from border import *
-from matching import *
+from border_extraction import *
+from border_matching import *
+from data_generation import *
 from segmentation import *
 
 def get_hint(img):
