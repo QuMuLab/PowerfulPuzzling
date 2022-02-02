@@ -21,7 +21,7 @@ class Matcher:
                 what rotation (in degrees) needs to be applied for them to match.
         """
         n = len(contours) # number of pieces
-        probable_matches = np.empty((n, n, 1)) # only half will be filled (symetricall)
+        probable_matches = np.empty((n, n, 1)) # only half will be filled (symetrical)
         for i in  range(n):
             for j in range(i+1, n):
                 probable_matches[i,j] = self.match_likelihood(contours[i], contours[j])                
