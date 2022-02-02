@@ -32,4 +32,7 @@ def get_image_and_border(path_to_image):
     # Updating contours after smoothing
     contours, _ = cv2.findContours(smooth, 0, 1)
 
+    # position at 0,0 by subtracting by min point:
+    # x, y, w, h = cv2.boundingRect(contours[i])
+
     return puzzle, contours
