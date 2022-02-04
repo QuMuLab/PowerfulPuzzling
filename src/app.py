@@ -1,8 +1,9 @@
 """This is where everything is run from"""
 
-from border import *
-from matching import *
-from segmentation import *
+from src.border_extraction import *
+from src.border_matching import *
+from src.data_generation import *
+from src.segmentation import *
 
 def get_hint(img):
     """Simple stub function to get the next puzzle action.

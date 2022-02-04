@@ -8,7 +8,7 @@ import numpy as np
 import cv2
 
 #%% opening image and applying adaptive threshold
-puzzle = np.array(Image.open('/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/dataset/starry_night/edge_case.JPG').convert('RGBA'))
+puzzle = np.array(Image.open('dataset\\starry_night\\edge_case.jpg').convert('RGBA'))
 
 blocksize=11
 c=13
