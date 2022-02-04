@@ -93,6 +93,3 @@ ax[0,3].imshow(tiles[3])
 
 [axi.set_axis_off() for axi in ax.ravel()]
 plt.show()
-
-import pickle
-pickle.dump(contours, open("contours_(edge_case.JPG).pickle", "wb"))
