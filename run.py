@@ -5,89 +5,71 @@ from src.app import get_hint, complete_puzzle
 from src.border_matching import Matcher
 from src.segmentation.FIXME import get_image_and_border
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 import numpy as np
 import cv2 as cv
+from dtw import dtw, rabinerJuangStepPattern
 
 # %%
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
-print(img.shape)
 m = Matcher(img)
 plt.imshow(img)
 
 # %%
 def display_border(border, **kwargs):
+    print(border.shape)
     n = border.shape[0]
     b = border.reshape(n, 2)
     plt.scatter(b[:,0], b[:,1], **kwargs)
 
-#%% pieces 0 and 2 can connect on one side:
-display_border(borders[0])
-display_border(borders[2], c='r')
-
-#%% Splitting up the border
-# length of one piece is around 400-500 pixels
+#%% Pieces 0 and 2 can connect on one side:
 b1 = borders[0]
 b2 = borders[2]
+display_border(b1, c='r')
+display_border(b2, c='r')
 
-# x,y,w,h = cv.boundingRect(b1)
-# plt.xlim(x,x+w)
-# plt.ylim(y,y+h)
-n=450
-best_match_i = [0,0] # index for the best matching group
-best_score = inf # the lower the score the better (best is 0)
-
-
-for p1 in range(0,len(b1), n):
-    plt.scatter(b1[:,0][:,0], b1[:,0][:,1], c='g')
-    plt.scatter(b2[:,0][:,0], b2[:,0][:,1], c='g')
-    b1_s = b1[p1:p1+n]
-    for p2 in range(0, len(b2), n):
-        b2_s = b2[p2:p2+n]
-        score = cv.matchShapes(b1_s, b2_s, 2,0.0)
-        if best_score > score:
-            print("new best:", score)
-            best_score = score
-            best_match_i = [p1, p2]
-            plt.scatter(b1_s[:,0][:,0], b1_s[:,0][:,1], c='r')
-            plt.scatter(b2_s[:,0][:,0], b2_s[:,0][:,1], c='r')
-            plt.show()
-            plt.scatter(b1[:,0][:,0], b1[:,0][:,1], c='g')
-            plt.scatter(b2[:,0][:,0], b2[:,0][:,1], c='g')
-        
-    
-# score = cv.matchShapes(b1_s[0], b1_s[0])
-
-
- # %%
-p1,p2 = best_match_i
-plt.scatter(b1[:,0][:,0], b1[:,0][:,1])
-plt.scatter(b2[:,0][:,0], b2[:,0][:,1])
-
-# %%
-# Matching segment is at (index positions):
-#   b1: 1420-1870
-#   b2: 2320-2770
+# %% function to get the color near that border:
 p1 = 1420
 p2 = 2320
 n = 450
 b1_s = b1[p1:p1+n]
 b2_s = b2[p2:p2+n]
-score = cv.matchShapes(b1_s, b2_s, 1, None)
-print('score is', score)
-plt.scatter(b1[:,0][:,0], b1[:,0][:,1], c='g')
-plt.scatter(b2[:,0][:,0], b2[:,0][:,1], c='g')
-plt.scatter(b1_s[:,0][:,0], b1_s[:,0][:,1], c='r')
-plt.scatter(b2_s[:,0][:,0], b2_s[:,0][:,1], c='r')
-# %% overlaying the two segements
-x1,y1,w,h = cv.boundingRect(b1_s)
-b1_s0 = np.array([[p[0]-x1, p[1]-y1] for p in b1_s[:,0]])
-x2,y2,w,h = cv.boundingRect(b2_s)
-b2_s0 = np.array([[p[0]-x2, p[1]-y2] for p in b2_s[:,0]])
+display_border(b1_s, c='g')
+display_border(b2_s, c='r')
 
-plt.scatter(b1_s0[:,0], b1_s0[:,1], c='g')
-plt.scatter(b2_s0[:,0], b2_s0[:,1], c='r')
-# %% getting score for zeroed border
-score = cv.matchShapes(b1_s0, b2_s0, 1, None)
-print('score is', score)
+# %% Unrolling on one side only using approx
+ur_b1_s = cv.approxPolyDP(b1_s, 1, True)[:,0][:,0]
+ur_b2_s = cv.approxPolyDP(b2_s, 1, True)[:,0][:,0]
 
-# %%
+# normalizing
+ur_b1_s = ur_b1_s / np.linalg.norm(ur_b1_s)
+ur_b2_s = ur_b2_s / np.linalg.norm(ur_b2_s)
+
+plt.plot(ur_b1_s)
+plt.plot(ur_b2_s)
+
+# %% Using dtw to match
+alignment = dtw(ur_b1_s, ur_b2_s, keep_internals=True)
+
+## Display the warping curve, i.e. the alignment curve
+alignment.plot(type="twoway")
+print(alignment.normalizedDistance)
+#``normalizedDistance`` distance computed, *normalized* for path
+#   length, if normalization is known for chosen step pattern.
+
+#%% Align and plot with the Rabiner-Juang type VI-c (no. 6) unsmoothed recursion
+aligned = dtw(ur_b1_s, ur_b2_s, keep_internals=True, 
+    step_pattern=rabinerJuangStepPattern(6, "c"))
+
+aligned.plot(type="twoway")
+print(aligned.normalizedDistance)
+
+# %% High level classification of pieces using calculus:
+np.diff()
+# First derivative will be decreasing and the 
+# second derivative will be negative for concave shapes (/\):
+# First derivative will be increasing and the 
+# second derivative will be positive for convex shapes (\/):
+
+# Taking the average of the second derivative will let us know which one it is.
+# A large jerk at such a point will mean the curve is very quickly changing its curvature at the point. An example would be that as you move through the point, the curve goes very quickly from a gradual bend, like moving along a huge circle, to a much sharper bend.
