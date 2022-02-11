@@ -1,3 +1,4 @@
+from cmath import inf
 from typing import Tuple, Iterable
 import numpy as np
 from dtw import dtw
@@ -12,22 +13,56 @@ class Matcher:
                 color data for validating matches)
         """
         self.puzzle = original_image
+        #TODO: apply clustering aswell? for high level color classification
         
-    def find_matching(self, contours: np.array) -> Tuple[int, int, float, float]:
+    def get_matching_pieces(self, contours: np.array) -> Tuple[Tuple[int,int], Tuple[float, float]]:
         """Finds two pieces that match with each other given their borders.
 
         Args:
             contours (np.array): the contours for all the borders of each piece
 
         Returns:
-            tuple[int, int, float, float]: The index for the two matching borders, and 
-                what rotation (in degrees) needs to be applied for them to match.
+            Tuple[Tuple[int, int], Tuple[float, float]]: The index for the two matching 
+                borders, and what rotation (in degrees) needs to be applied for them to 
+                match.
         """
         n = len(contours) # number of pieces
-        probable_matches = np.empty((n, n, 1)) # only half will be filled (symetrical)
+        best_match = inf
+        best_i = (-1,-1)
+        best_rot = (-1.0, -1.0)
         for i in  range(n):
             for j in range(i+1, n):
-                probable_matches[i,j] = self.match_likelihood(contours[i], contours[j])                
+                match_val, match_rot = self.get_matching_segments(contours[i], contours[j])
+                
+                if best_match < match_val:
+                    best_match = match_val
+                    best_i = (i, j)
+                    best_rot = match_rot
+        
+        assert best_i != (-1,-1), "Best index cannot be negative"
+        
+        return best_i, best_rot
+    
+    def get_matching_segments(self, b1:np.array, b2:np.array) -> Tuple[float, Tuple[float, float]]:
+        """
+        Gets matching segments from two contours. This is done by shape and then 
+        validated with color.
+
+        Args:
+            b1 (np.array): A border/contour.
+            b2 (np.array): The border/contour to match with.
+
+        Returns:
+            Tuple[float, Tuple[float, float]]: The match value and the rotation applied for that 
+            optimal match.
+        """
+        # TODO: iterate through each border by "unrolling"
+        # Checking high level features
+        #   concave vs convex vs linear
+        #   General matching clusters of colors
+        # if passed check lower level features (more computational expensive)
+        
+        pass
 
     def __match_color(self, seg1:np.array, seg2:np.array) -> float: # TODO: complete this function
         """
@@ -172,3 +207,4 @@ class Matcher:
         else:
             rotated = points@rot_mat
         return rotated
+       
