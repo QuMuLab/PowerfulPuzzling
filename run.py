@@ -38,31 +38,31 @@ display_border(b1_s, c='g')
 display_border(b2_s, c='r')
 
 # %% Unrolling on one side only using approx
-ur_b1_s = cv.approxPolyDP(b1_s, 1, True)[:,0][:,0]
-ur_b2_s = cv.approxPolyDP(b2_s, 1, True)[:,0][:,0]
+ur_b1_s = b1_s[:,0][:,0]
+ur_b2_s = b2_s[:,0][:,0]
 
-# normalizing
+# normalizing this is needed for dtw to work 
 ur_b1_s = ur_b1_s / np.linalg.norm(ur_b1_s)
 ur_b2_s = ur_b2_s / np.linalg.norm(ur_b2_s)
 
 plt.plot(ur_b1_s)
 plt.plot(ur_b2_s)
 
-# %% Using dtw to match
-alignment = dtw(ur_b1_s, ur_b2_s, keep_internals=True)
+# %% Using dtw to match:
+a1 = dtw(ur_b1_s, ur_b2_s, keep_internals=True)
+a1.plot(type="threeway")
+a1.plot(type="twoway")
+print(a1.distance)
+print(a1.normalizedDistance)
 
-## Display the warping curve, i.e. the alignment curve
-alignment.plot(type="twoway")
-print(alignment.normalizedDistance)
-#``normalizedDistance`` distance computed, *normalized* for path
-#   length, if normalization is known for chosen step pattern.
+# %% with only_distance flag on (no keep_internals)
+a2 = dtw(ur_b1_s, ur_b2_s, keep_internals=True, distance_only=False)
 
-#%% Align and plot with the Rabiner-Juang type VI-c (no. 6) unsmoothed recursion
-aligned = dtw(ur_b1_s, ur_b2_s, keep_internals=True, 
-    step_pattern=rabinerJuangStepPattern(6, "c"))
-
-aligned.plot(type="twoway")
-print(aligned.normalizedDistance)
+# cannot display anything if distance_only is set!
+a2.plot(type="threeway")
+a2.plot(type="twoway")
+print(a2.distance)
+print(a2.normalizedDistance)
 
 # %% High level classification of pieces using calculus:
 np.diff()

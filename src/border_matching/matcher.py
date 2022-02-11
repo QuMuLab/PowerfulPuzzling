@@ -29,21 +29,38 @@ class Matcher:
             for j in range(i+1, n):
                 probable_matches[i,j] = self.match_likelihood(contours[i], contours[j])                
 
-    def __match_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2") -> float:
+    def __match_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2", 
+                         distance_only=True, display=False) -> Tuple[float, float]:
         """
         This uses Dynamic Time Warping (DTW) and returns the normalized distance 
         value, to determine how well two segments fit with each other.
         
         Args:
-            seg1 (np.array): The border segment.
-            seg2 (np.array): The border segment to match with.
+            seg1 (np.array): The unrolled border segment (x,).
+            seg2 (np.array): The unrolled border segment to match with.
             step_pattern (str, optional): The step pattern to use when applying DTW 
                 (see dtw-python docs for more info). Defaults to "symmetric2".
+            distance_only
 
         Returns:
-            float: Normalized distance value from DTW.
+            Tuple[float, float]: distance and normalized distance value from DTW, respectively.
         """
-        pass
+        assert not (distance_only and display), 'Cannot display anything if distance_only is also set.'
+        
+        # normalizing is needed for DTW to work 
+        seg1_n = seg1 / np.linalg.norm(seg1)
+        seg2_n = seg2 / np.linalg.norm(seg2)
+        
+        
+        aligned = dtw(seg1_n, seg2_n, 
+                      step_pattern=step_pattern
+                      keep_internals=display, # keep internals is needed in order to display
+                      distance_only=distance_only)
+
+        if display:
+            aligned.plot(type="threeway")
+            aligned.plot(type="twoway")
+        return aligned.distance, aligned.normalizedDistance
     
     def __determine_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
         """
@@ -82,7 +99,7 @@ class Matcher:
         
         return shape, poly
     
-    def __get_line(self, coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
+    def __get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
         """
         Returns a list of points representing the polynomial function by the coefficients 
         passed in.
@@ -105,7 +122,6 @@ class Matcher:
             out.append(y)
             
         return out
-    
     
     def __rotate_points(points:np.array, n=1, inplace=True) -> np.array:
         """
