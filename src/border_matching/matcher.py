@@ -29,7 +29,7 @@ class Matcher:
             for j in range(i+1, n):
                 probable_matches[i,j] = self.match_likelihood(contours[i], contours[j])                
 
-    def __match_color(self, seg1:np.array, seg2:np.array) -> float:
+    def __match_color(self, seg1:np.array, seg2:np.array) -> float: # TODO: complete this function
         """
         Matching validation based on sampled colors along the border segment.
 
@@ -40,6 +40,7 @@ class Matcher:
         Returns:
             float: [description]
         """
+        pass
 
     def __match_distance(seg1:np.array, seg2:np.array, step_pattern="symmetric2", 
                          distance_only=True, display=False) -> Tuple[float, float]:
@@ -65,7 +66,7 @@ class Matcher:
         
         
         aligned = dtw(seg1_n, seg2_n, 
-                      step_pattern=step_pattern
+                      step_pattern=step_pattern,
                       keep_internals=display, # keep internals is needed in order to display
                       distance_only=distance_only)
 
