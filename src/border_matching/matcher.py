@@ -29,7 +29,19 @@ class Matcher:
             for j in range(i+1, n):
                 probable_matches[i,j] = self.match_likelihood(contours[i], contours[j])                
 
-    def __match_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2", 
+    def __match_color(self, seg1:np.array, seg2:np.array) -> float:
+        """
+        Matching validation based on sampled colors along the border segment.
+
+        Args:
+            seg1 (np.array): [description]
+            seg2 (np.array): [description]
+
+        Returns:
+            float: [description]
+        """
+
+    def __match_distance(seg1:np.array, seg2:np.array, step_pattern="symmetric2", 
                          distance_only=True, display=False) -> Tuple[float, float]:
         """
         This uses Dynamic Time Warping (DTW) and returns the normalized distance 
