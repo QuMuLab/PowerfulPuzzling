@@ -13,7 +13,8 @@ class Matcher:
                 color data for validating matches)
         """
         self.puzzle = original_image
-        #TODO: apply clustering aswell? for high level color classification
+        self.clustered_puzzle = original_image # TODO: apply clustering for high level color classification
+        self.hsv_puzzle = original_image # for color matching with DTWi
         
     def get_matching_pieces(self, contours: np.array) -> Tuple[Tuple[int,int], Tuple[float, float]]:
         """Finds two pieces that match with each other given their borders.
@@ -64,20 +65,28 @@ class Matcher:
         
         pass
 
-    def __match_color(self, seg1:np.array, seg2:np.array) -> float: # TODO: complete this function
+    def match_color_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
+                         distance_only=True, display=False) -> Tuple[float, float]: # TODO: complete this function
         """
         Matching validation based on sampled colors along the border segment.
+        The method used here is a cummulative DTW approach (DTWi from 
+        cs.ucr.edu/~eamonn/Multi-Dimensional_DTW_Journal.pdf).
 
         Args:
-            seg1 (np.array): [description]
-            seg2 (np.array): [description]
+            seg1 (np.array): The unrolled border segment (x,)
+            seg2 (np.array): segment to match with
+            step_pattern (str, optional): The step pattern to use when applying DTW 
+                (see dtw-python docs for more info). Defaults to "symmetric2".
+            distance_only (bool, optional): Only calculate the distance (no backtracking). Defaults to True.
+            display (bool, optional): Display threeway and twoway plots. Defaults to False.
 
         Returns:
-            float: [description]
+            Tuple[float, float]: distance and normalized distance value from DTW, respectively.
         """
+        
         pass
 
-    def __match_distance(seg1:np.array, seg2:np.array, step_pattern="symmetric2", 
+    def match_shape_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2", 
                          distance_only=True, display=False) -> Tuple[float, float]:
         """
         This uses Dynamic Time Warping (DTW) and returns the normalized distance 
@@ -88,7 +97,7 @@ class Matcher:
             seg2 (np.array): The unrolled border segment to match with.
             step_pattern (str, optional): The step pattern to use when applying DTW 
                 (see dtw-python docs for more info). Defaults to "symmetric2".
-            distance_only
+            distance_only (bool)
 
         Returns:
             Tuple[float, float]: distance and normalized distance value from DTW, respectively.
@@ -110,13 +119,13 @@ class Matcher:
             aligned.plot(type="twoway")
         return aligned.distance, aligned.normalizedDistance
     
-    def __determine_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
+    def determine_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
         """
         High-level determination of the shape of an unrolled border segment using np.polyfit.
-        Possible shapes are:            
-            0 - Concave (\\\/)\n
-            1 - Convex (/\\\)\n
-            2 - Linear (--)
+        Possible shapes are:
+             1) Concave (\\\/)\n
+             0) Linear (--)\n
+            -1) Convex (/\\\)\n
         
         This is determined by looking at the constant in a 2nd order polynomial fitted to the 
         points and seeing if it is - (convex), + (concave), or ~0 (linear).
@@ -126,7 +135,7 @@ class Matcher:
                     where x is the number of points.
             cutoff (float, optional): The cutoff for classification (e.g.: a cutoff of 1 
                     means linear is anything between -1 and 1 coeff). Defaults to 0.0 
-                    (no linear aspect).                    
+                    (no linear aspect).
             
         Returns:
             Tuple[int, Tuple[float]]: The determined shape (0-2) and the coefficents for the 
@@ -139,15 +148,15 @@ class Matcher:
         poly = np.polyfit(x=border_segment, y=list(range(border_segment.shape[0]), deg=2))
              
         if poly[0] > cutoff:
-            shape = 0
-        elif poly[0] < cutoff:
             shape = 1
+        elif poly[0] < cutoff:
+            shape = -1
         else:
-            shape = 2
+            shape = 0
         
         return shape, poly
     
-    def __get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
+    def get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
         """
         Returns a list of points representing the polynomial function by the coefficients 
         passed in.
@@ -171,7 +180,7 @@ class Matcher:
             
         return out
     
-    def __rotate_points(points:np.array, n=1, inplace=True) -> np.array:
+    def rotate_points(points:np.array, n=1, inplace=True) -> np.array:
         """
         Rotates 2D lists of points by n degrees using a rotation matrix.
 
