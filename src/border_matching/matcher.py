@@ -1,8 +1,9 @@
+from typing import Tuple
 from cmath import inf
-from typing import Tuple, Iterable
-import numpy as np
+
+from sklearn.cluster import KMeans
 from dtw import dtw
-from sklearn.utils import compute_sample_weight
+import numpy as np
 import cv2 as cv
 
 class Matcher:
@@ -14,7 +15,7 @@ class Matcher:
                 color data for validating matches)
         """
         self.puzzle = original_image
-        self.clustered_puzzle = original_image # TODO: apply clustering for high level color classification
+        self.clustered_puzzle = original_image # TODO: apply clustering for high level color classification?
         self.hsv_puzzle = cv.cvtColor(original_image, cv.COLOR_RGB2HSV) # for color matching with DTWi
         
         
@@ -22,7 +23,7 @@ class Matcher:
         """Finds two pieces that match with each other given their borders.
 
         Args:
-            contours (np.array): the contours for all the borders of each piece
+            contours (np.array): the contours for all the borders of each puzzle piece.
 
         Returns:
             Tuple[Tuple[int, int], Tuple[float, float]]: The index for the two matching 
@@ -48,7 +49,7 @@ class Matcher:
     
     def get_matching_segments(self, b1:np.array, b2:np.array) -> Tuple[float, Tuple[float, float]]:
         """
-        Gets matching segments from two contours. This is done by shape and then 
+        Gets the best matching segments from two contours. This is done by shape and then 
         validated with color.
 
         Args:
@@ -89,6 +90,7 @@ class Matcher:
         assert not (distance_only and display), 'Cannot display anything if distance_only is also set.'
         assert seg1.shape[-1] == 2 and \
                 seg2.shape[-1] == 2, "Passed in segments must be pixel positions for the colors!"
+        assert len(seg1.shape) == 2 and len(seg2.shape) == 2, "Segment shape must be (n, 2)!"
         
         # Extracting the HSV values
         hsv1 = self.hsv_puzzle[seg1[:, int(y_first)], seg1[:, int(not y_first)]]
@@ -105,13 +107,16 @@ class Matcher:
         
         # Displaying all three:
         if display:
-            # figure out how to title these (set_title doesn't work...)
+            # TODO: figure out how to title these (set_title doesn't work...)
+            print('Hue')
             DTW_h.plot(type="threeway")
             DTW_h.plot(type="twoway")
 
+            print('Saturation')
             DTW_s.plot(type="threeway")
             DTW_s.plot(type="twoway")
 
+            print('Value')
             DTW_v.plot(type="threeway")
             DTW_v.plot(type="twoway")
             
@@ -162,7 +167,7 @@ class Matcher:
 
         Args:
             border_segment (np.array): The unrolled border segment shape must be (x,) 
-                    where x is the number of points.
+                    where x is the number of points making up the border.
             cutoff (float, optional): The cutoff for classification (e.g.: a cutoff of 1 
                     means linear is anything between -1 and 1 coeff). Defaults to 0.0 
                     (no linear aspect).
@@ -186,64 +191,14 @@ class Matcher:
         
         return shape, poly
     
-    def get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
+    def determine_colors(self, border_segment:np.array) -> np.array:  # REVIEW: is this necessary?
         """
-        Returns a list of points representing the polynomial function by the coefficients 
-        passed in.
+        High level identification of the colors in the border segment.
 
         Args:
-            coeff (Tuple[float]): The coefficients of the polynomial.
-            a (int): Starting range.
-            b (int): End range.
-            steps (int, optional): Steps for iterating through the range.
+            border_segment (np.array): [description]
 
         Returns:
-            np.array: The list of values from a to b outputted by the polynomial function.
+            np.array: [description]
         """
-        out = np.array([])
-        order = len(coeff) - 1 # the polynomial order
-        for x in range(a, b, steps):
-            y = 0
-            for i, c in enumerate(coeff):
-                y += c*x**(order - i)
-            out.append(y)
-            
-        return out
-    
-    def rotate_points(points:np.array, n=1, inplace=True) -> np.array:
-        """
-        Rotates 2D lists of points by n degrees using a rotation matrix.
-
-        Args:
-            points (np.array): list of 2D points to be rotated.
-            n (int, optional): How many degrees to rotate points by. Defaults to 1.
-            inplace (bool, optional): Whether or not to rotate around points center 
-                    to maintain position instead of around origin. Defaults to True.
-
-        Returns:
-            np.array: The new list of points rotated by n degrees
-            
-        Reference:
-            https://en.wikipedia.org/wiki/Rotation_matrix
-        """
-        # creating rotation matrix
-        rad = np.radians(n) # needed because np.cos only takes radians as inputs
-        cos_0 = np.cos(rad)
-        sin_0 = np.sin(rad)
-        rot_mat = np.array([[cos_0, -sin_0],
-                            [sin_0,  cos_0]])
-        
-        if inplace:
-            # getting centre point
-            max_x, min_x = max(points[:,0]), min(points[:,0])
-            max_y, min_y = max(points[:,1]), min(points[:,1])
-            center = [min_x + ((max_x - min_x) / 2),
-                      min_y + ((max_y - min_y) / 2)]
-            
-            centered = points - center # translate to origin
-            rotated = centered@rot_mat # performing rotation
-            rotated += center # translate back
-        else:
-            rotated = points@rot_mat
-        return rotated
-       
+        pass

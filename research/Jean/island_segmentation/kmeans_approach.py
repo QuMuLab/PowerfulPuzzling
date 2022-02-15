@@ -1,22 +1,26 @@
-# from this: https://towardsdatascience.com/image-segmentation-with-clustering-b4bbc98f2ee6
+#%% from this: https://towardsdatascience.com/image-segmentation-with-clustering-b4bbc98f2ee6
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs
 from scipy.ndimage import filters
 import numpy as np
 from matplotlib import pyplot as plt
+from PIL import Image
 import cv2
+path_to_image = 'C:\\Users\\Jean\\Desktop\\Undergrad\\2022 Winter\\CISC 499\\PowerfulPuzzling\\dataset\\starry_night\\edge_case.JPG'
 
-img = cv2.imread('C:\\Users\\Jean\\Desktop\\Undergrad\\2022 Winter\\CISC 499\\PowerfulPuzzling\\dataset\\starry_night\\edge_case.JPG',
-        cv2.IMREAD_UNCHANGED)
+# %%
+img = np.array(Image.open(path_to_image).convert('RGB'))
 vectorized = img.reshape((-1,3))
-kmeans = KMeans(n_clusters=2, n_init=10).fit(vectorized)
+kmeans = KMeans(n_clusters=2).fit(vectorized)
 centers = np.uint8(kmeans.cluster_centers_)
 segmented_data = centers[kmeans.labels_.flatten()]
  
+# %%
 segmented_image = segmented_data.reshape((img.shape))
-plt.imshow(segmented_image, cmap='gray')
+plt.imshow(segmented_image)
 plt.suptitle("segmented")
 plt.figure()
+#%%
 
 img = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY) # grayscaling
 
@@ -35,23 +39,23 @@ def smooth_edges(img, thickness=3):
     cv2.drawContours(smooth, trim_contours, -1, color=0, thickness=thickness)
     return smooth
 
-c=-10
-blocksize=5
-thr = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, 
-                            cv2.THRESH_BINARY, blocksize, c)
+# c=-10
+# blocksize=5
+# thr = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, 
+#                             cv2.THRESH_BINARY, blocksize, c)
 
-plt.imshow(img, cmap='gray')
-plt.suptitle("grayscaled")
-plt.figure()
+# plt.imshow(img, cmap='gray')
+# plt.suptitle("grayscaled")
+# plt.figure()
 
-fill = find_cntrs(thr, 5)
+# fill = find_cntrs(thr, 5)
 
-plt.imshow(fill, cmap="gray")
-plt.suptitle("block: {}, c: {}".format(blocksize, c))
+# plt.imshow(fill, cmap="gray")
+# plt.suptitle("block: {}, c: {}".format(blocksize, c))
 
-smoothed = smooth_edges(fill, 5)
+# smoothed = smooth_edges(fill, 5)
 
-plt.imshow(smoothed, cmap='gray')
-plt.suptitle("smoothed")
-plt.figure()
+# plt.imshow(smoothed, cmap='gray')
+# plt.suptitle("smoothed")
+# plt.figure()
 plt.show()
