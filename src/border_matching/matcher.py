@@ -6,8 +6,10 @@ from dtw import dtw
 import numpy as np
 import cv2 as cv
 
+from src.utils import rotate_points
+
 class Matcher:
-    def __init__(self, original_image: np.array, ksize=61) -> None:
+    def __init__(self, original_image: np.array, piece_size=400, ksize=61) -> None:
         """This class is in charge of 
 
         Args:
@@ -16,7 +18,10 @@ class Matcher:
             ksize (int, optional): The kernal size for median blur on the original image. Defaults to 61.
         """
         self.puzzle = original_image
-        # self.clustered_puzzle = original_image # TODO: apply clustering for high level color classification?
+        # self.clustered_puzzle = original_image # REVIEW: apply clustering for high level color classification?
+        
+        self.piece_size = piece_size #TODO: how can we dynamically determine this?
+        
         self.blured_puzzle = cv.medianBlur(original_image, ksize=ksize)
         self.hsv_puzzle = cv.cvtColor(self.blured_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi
         
@@ -68,7 +73,13 @@ class Matcher:
         #   General matching clusters of colors
         # if passed check lower level features (more computational expensive)
         
-        pass
+        for i in range(360):
+            # rotating to observe from another section
+            b1_r = rotate_points(b1, i)
+            
+            for j in range(360):
+                b2_r = rotate_points(b2, j)
+                
 
     def match_color_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
                          distance_only=True, display=False, y_first=True) -> Tuple[float, float]: # TODO: complete this function
