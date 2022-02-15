@@ -8,11 +8,11 @@ import cv2
 
 def get_image_and_border(path_to_image):
     # opening image and applying **adaptive threshold**
-    puzzle = np.array(Image.open(path_to_image).convert('RGBA'))
+    puzzle = np.array(Image.open(path_to_image).convert('RGB'))
 
     blocksize=11
     c=13
-    thr = cv2.cvtColor(puzzle, cv2.COLOR_RGBA2GRAY) # grayscaling
+    thr = cv2.cvtColor(puzzle, cv2.COLOR_RGB2GRAY) # grayscaling
     thr = cv2.adaptiveThreshold(thr, 255, 0, 1, blocksize, c)
     thr = cv2.GaussianBlur(thr, (5,5), 1)
 

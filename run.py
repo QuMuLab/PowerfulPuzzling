@@ -59,7 +59,8 @@ print(a1.normalizedDistance)
 a2 = dtw(ur_b1_s, ur_b2_s, keep_internals=True, distance_only=False)
 
 # cannot display anything if distance_only is set!
-a2.plot(type="threeway")
+ax = a2.plot(type="threeway")
+ax.set_title('test title')
 a2.plot(type="twoway")
 print(a2.distance)
 print(a2.normalizedDistance)
