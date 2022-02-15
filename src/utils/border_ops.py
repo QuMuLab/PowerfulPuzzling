@@ -30,6 +30,7 @@ def get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
         
     return out
 
+
 def rotate_points(points:np.array, deg=1, inplace=True) -> np.array:
     """
     Rotates 2D lists of points by `deg` degrees using a rotation matrix.

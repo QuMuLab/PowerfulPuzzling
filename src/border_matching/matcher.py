@@ -7,16 +7,18 @@ import numpy as np
 import cv2 as cv
 
 class Matcher:
-    def __init__(self, original_image: np.array) -> None:
+    def __init__(self, original_image: np.array, ksize=61) -> None:
         """This class is in charge of 
 
         Args:
             original_image (np.array): RGB picture of the original image (used to extract 
                 color data for validating matches)
+            ksize (int, optional): The kernal size for median blur on the original image. Defaults to 61.
         """
         self.puzzle = original_image
-        self.clustered_puzzle = original_image # TODO: apply clustering for high level color classification?
-        self.hsv_puzzle = cv.cvtColor(original_image, cv.COLOR_RGB2HSV) # for color matching with DTWi
+        # self.clustered_puzzle = original_image # TODO: apply clustering for high level color classification?
+        self.blured_puzzle = cv.medianBlur(original_image, ksize=ksize)
+        self.hsv_puzzle = cv.cvtColor(self.blured_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi
         
         
     def get_matching_pieces(self, contours: np.array) -> Tuple[Tuple[int,int], Tuple[float, float]]:
@@ -74,6 +76,8 @@ class Matcher:
         Matching validation based on colors along the border segment.
         The method used here is a cummulative DTW approach (DTWi from 
         cs.ucr.edu/~eamonn/Multi-Dimensional_DTW_Journal.pdf).
+        
+        A good match with have a normalized distance value of <20
 
         Args:
             seg1 (np.array): The pixel positions of colors to use (n,2) where y is first and x is second.
@@ -97,6 +101,7 @@ class Matcher:
         hsv2 = self.hsv_puzzle[seg2[:, int(y_first)], seg2[:, int(not y_first)]]
         
         # Running DTW on each individual color format (H, S, and V)
+        # NOTE: unlike shape DTW we don't need to normalize because they will all be along the same scale.
         DTW_h = dtw(hsv1[:,0], hsv2[:,0], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
         DTW_s = dtw(hsv1[:,1], hsv2[:,1], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
         DTW_v = dtw(hsv1[:,2], hsv2[:,2], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
@@ -127,6 +132,11 @@ class Matcher:
         """
         This uses Dynamic Time Warping (DTW) and returns the normalized distance 
         value, to determine how well two segments fit with each other.
+        
+        A good match here will have a distance value of <0.05
+        
+        Note that in this case the normalized distance won't mean much as the values
+        are already normalized before dtw.
         
         Args:
             seg1 (np.array): The unrolled border segment (n,).

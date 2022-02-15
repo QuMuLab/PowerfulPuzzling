@@ -15,6 +15,7 @@ from dtw import dtw, rabinerJuangStepPattern
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
 m = Matcher(img)
 plt.imshow(img)
+plt.show()
 
 # %%
 def display_border(border, **kwargs):
@@ -32,9 +33,13 @@ display_border(b2, c='r')
 # %% Getting appropriate segments:
 p1 = 1420
 p2 = 2320
+p3 = 3540
 n = 450
 b1_s = b1[p1:p1+n]
 b2_s = b2[p2:p2+n]
+b3_s = borders[1][p3:p3+n]
+# display_border(borders[1])
+display_border(b3_s)
 
 #%% convertting to hsv:
 hsv_puzzle = cv.cvtColor(img, cv.COLOR_RGB2HSV)
@@ -80,50 +85,51 @@ def match_color_distance(hsv_puzzle, seg1:np.array, seg2:np.array, step_pattern=
     # Displaying all three:
     if display:
         # TODO: figure out how to title these (set_title doesn't work...)
-        print('Hue')
-        DTW_h.plot(type="threeway")
-        DTW_h.plot(type="twoway")
+        # print('Hue')
+        # DTW_h.plot(type="threeway")
+        # DTW_h.plot(type="twoway")
 
         print('Saturation')
         DTW_s.plot(type="threeway")
         DTW_s.plot(type="twoway")
 
-        print('Value')
-        DTW_v.plot(type="threeway")
-        DTW_v.plot(type="twoway")
+        # print('Value')
+        # DTW_v.plot(type="threeway")
+        # DTW_v.plot(type="twoway")
         
     return dist, norm_dist
 
 # %% checking color match
 match_color_distance(hsv_puzzle, seg1=b1_s[:,0], seg2=b2_s[:,0], distance_only=False, display=True)
 
+# %% comparing with blurry
+# hsv_blr = cv.GaussianBlur(hsv_puzzle, ksize=(15,15), sigmaX=10)
+hsv_blr = cv.medianBlur(hsv_puzzle, ksize=61)
+plt.imshow(hsv_blr)
+match_color_distance(hsv_blr, seg1=b1_s[:,0], seg2=b2_s[:,0], distance_only=False, display=True)
 
-# # %% Unrolling on one side only using approx
-# ur_b1_s = b1_s[:,0][:,0]
-# ur_b2_s = b2_s[:,0][:,0]
+# %% Unrolling on one side only using approx
+ur_b1_s = b1_s[:,0][:,0]
+ur_b2_s = b2_s[:,0][:,0]
+ur_b3_s = b3_s[:,0][:,0]
 
-# # normalizing this is needed for dtw to work 
-# ur_b1_s = ur_b1_s / np.linalg.norm(ur_b1_s)
-# ur_b2_s = ur_b2_s / np.linalg.norm(ur_b2_s)
+# normalizing this is needed for dtw to work 
+ur_b1_s = ur_b1_s / np.linalg.norm(ur_b1_s)
+ur_b2_s = ur_b2_s / np.linalg.norm(ur_b2_s)
+ur_b3_s = ur_b3_s / np.linalg.norm(ur_b3_s)
 
-# plt.plot(ur_b1_s)
-# plt.plot(ur_b2_s)
+plt.plot(ur_b1_s)
+plt.plot(ur_b2_s)
+plt.plot(ur_b3_s)
 
-# # %% Using dtw to match:
-# a1 = dtw(ur_b1_s, ur_b2_s, keep_internals=True)
-# a1.plot(type="threeway")
-# a1.plot(type="twoway")
-# print(a1.distance)
-# print(a1.normalizedDistance)
+# %% Using dtw to match, with only_distance flag on (no keep_internals)
+a2 = dtw(ur_b1_s, ur_b2_s, keep_internals=True, distance_only=False)
+a2 = dtw(ur_b1_s, ur_b3_s, keep_internals=True, distance_only=False)
 
-# # %% with only_distance flag on (no keep_internals)
-# a2 = dtw(ur_b1_s, ur_b2_s, keep_internals=True, distance_only=False)
-
-# # cannot display anything if distance_only is set!
-# ax = a2.plot(type="threeway")
-# ax.set_title('test title')
-# a2.plot(type="twoway")
-# print(a2.distance)
-# print(a2.normalizedDistance)
+# cannot display anything if distance_only is set!
+ax = a2.plot(type="threeway")
+a2.plot(type="twoway")
+print(a2.distance)
+print(a2.normalizedDistance)
 
 # %%
