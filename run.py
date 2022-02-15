@@ -27,8 +27,10 @@ def display_border(border, **kwargs):
 #%% Pieces 0 and 2 can connect on one side:
 b1 = borders[0]
 b2 = borders[2]
-display_border(b1, c='r')
-display_border(b2, c='r')
+display_border(b1)
+display_border(b2)
+display_border(borders[1])
+exit()
 
 # %% Getting appropriate segments:
 p1 = 1420
@@ -85,22 +87,19 @@ def match_color_distance(hsv_puzzle, seg1:np.array, seg2:np.array, step_pattern=
     # Displaying all three:
     if display:
         # TODO: figure out how to title these (set_title doesn't work...)
-        # print('Hue')
-        # DTW_h.plot(type="threeway")
-        # DTW_h.plot(type="twoway")
+        print('Hue')
+        DTW_h.plot(type="threeway")
+        DTW_h.plot(type="twoway")
 
         print('Saturation')
         DTW_s.plot(type="threeway")
         DTW_s.plot(type="twoway")
 
-        # print('Value')
-        # DTW_v.plot(type="threeway")
-        # DTW_v.plot(type="twoway")
+        print('Value')
+        DTW_v.plot(type="threeway")
+        DTW_v.plot(type="twoway")
         
     return dist, norm_dist
-
-# %% checking color match
-match_color_distance(hsv_puzzle, seg1=b1_s[:,0], seg2=b2_s[:,0], distance_only=False, display=True)
 
 # %% comparing with blurry
 # hsv_blr = cv.GaussianBlur(hsv_puzzle, ksize=(15,15), sigmaX=10)
@@ -123,7 +122,7 @@ plt.plot(ur_b2_s)
 plt.plot(ur_b3_s)
 
 # %% Using dtw to match, with only_distance flag on (no keep_internals)
-a2 = dtw(ur_b1_s, ur_b2_s, keep_internals=True, distance_only=False)
+# a2 = dtw(ur_b1_s, ur_b2_s, keep_internals=True, distance_only=False)
 a2 = dtw(ur_b1_s, ur_b3_s, keep_internals=True, distance_only=False)
 
 # cannot display anything if distance_only is set!
