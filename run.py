@@ -49,33 +49,51 @@ b3_s = b3[p3:p3+n]
 def unroll(brdr):
     # Using the Law of cosines for SSS case:
     #       a
-    # P1 - - - P2
-    #         0  \  b
+    # P1 - - - P2 . . . .
+    #         0  \  0'  b
     #     c       \
     #              P3
     # Angle 0 is:
     #   cos^-1((a^2 + b^2 - c^2) / 2ab)
-    # example: https://www.desmos.com/calculator/1vu8qxarpx
+    # Which we use to get 0' (the deviation from main line):
+    #   0' = 180 - 0
+    #
+    # We also need an adjustment term for the next step of determining direction.
+    # This is because by the nature of arccos, if angle is greater than 90 deg 
+    # then the sign will flip so this ensures that it stays the same sign:
+    #   adj = 90 - 0'
+    #   90 - adj = 180 - 0
+    #   adj = 0 - 90
+    #
+    # Now we can determine if we are going left or right with the slope of the 
+    # lines of P1-P2 and P2-P3 and the adj term:
+    #     sign(((m1 - m2) / (1 + m1*m2)) * adj)
+    # See example here: https://www.desmos.com/calculator/lj4ukhyafd
+    
     angles = [] #TODO: optimize this by preallocating
-    for i in range(0,brdr.shape[0], 3):
+    for i in range(0, brdr.shape[0], 3):
         p1 = brdr[i]
         p2 = brdr[i+1]
         p3 = brdr[i+2]
         # calculating euclidian distances (l2 norm):
-        a = np.norm(p2-p3)
-        b = np.norm(p3-p1)
-        c = np.norm(p1-p2)
-        angle = np.arccos((c**2 - a**2 - b**2) / (-2*a*b))
-        angles.append(angle)
-        #TODO: need to be able to determine if the angle is a right(+) or a left (-) turn
-        # This can be done by drawing a line b/t p1 and p3 and seeing where p2 ends up on
-        #   This will determine if it is concave (left turn) or convex (right turn); 
-        #       (note that I am assuming we are traveling around the puzzle in a clockwise direction)
+        a = np.norm(p1-p2)
+        b = np.norm(p2-p3)
+        c = np.norm(p3-p1)
+        # Using law of cosines to get angle 0 in radians
+        angle = np.arccos((a**2 + b**2 - c**2) / (-2*a*b)) 
         
-    return angles
+        # Determining if right or left turn (assuming clockwise rotation):
+        m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+        m2 = (p3[1] - p2[1]) / (p3[0] - p2[0])
         
+        # 1.57079632679 ~ π/2 = 90 deg
+        adj = angle - np.pi/2
+        # Theoretically 0 will never happen but just to make sure:
+        if adj == 0: adj = 1
+        sgn = np.sign(((m1 - m2) / (1 + m1*m2)) * adj)
         
-         
+        angles.append(sgn*angle)
+    return angles      
         
   
 #%%
