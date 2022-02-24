@@ -4,6 +4,7 @@ from cmath import inf
 from src.app import get_hint, complete_puzzle
 from src.border_matching import Matcher
 from src.segmentation.FIXME import get_image_and_border
+from src.utils import rotate_points, points2img
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import numpy as np
@@ -27,10 +28,11 @@ def display_border(border, **kwargs):
 #%% Pieces 0 and 2 can connect on one side:
 b1 = borders[0]
 b2 = borders[2]
-display_border(b1)
-display_border(b2)
-display_border(borders[1])
-exit()
+b3 = borders[5] # non-matching piece
+# display_border(b1)
+# display_border(b2)
+display_border(b3)
+plt.show()
 
 # %% Getting appropriate segments:
 p1 = 1420
@@ -39,96 +41,80 @@ p3 = 3540
 n = 450
 b1_s = b1[p1:p1+n]
 b2_s = b2[p2:p2+n]
-b3_s = borders[1][p3:p3+n]
+b3_s = b3[p3:p3+n]
 # display_border(borders[1])
-display_border(b3_s)
+# display_border(b3_s)
 
-#%% convertting to hsv:
-hsv_puzzle = cv.cvtColor(img, cv.COLOR_RGB2HSV)
-
-#%% color match function:
-def match_color_distance(hsv_puzzle, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
-                        distance_only=True, display=False, y_first=True) -> Tuple[float, float]: # TODO: complete this function
-    """
-    Matching validation based on colors along the border segment.
-    The method used here is a cummulative DTW approach (DTWi from 
-    cs.ucr.edu/~eamonn/Multi-Dimensional_DTW_Journal.pdf).
-
-    Args:
-        seg1 (np.array): The pixel positions of colors to use (n,2) where y is first and x is second.
-        seg2 (np.array): pixel positions of the segment to match with.
-        step_pattern (str, optional): The step pattern to use when applying DTW 
-            (see dtw-python docs for more info). Defaults to "symmetric2".
-        distance_only (bool, optional): Only calculate the distance (no backtracking). Defaults to True.
-        display (bool, optional): Display threeway and twoway plots. Defaults to False.
-        y_first (bool, optional): y is the first value in the pixel position. Defaults to True
-
-    Returns:
-        Tuple[float, float]: distance and normalized distance value from DTW, respectively.
-    """
-    assert not (distance_only and display), 'Cannot display anything if distance_only is also set.'
-    assert seg1.shape[-1] == 2 and \
-            seg2.shape[-1] == 2, "Passed in segments must be pixel positions for the colors!"
-    assert len(seg1.shape) == 2 and len(seg2.shape) == 2, "Segment shape must be of the format (x,2)!"
-    
-    # Extracting the HSV values
-    hsv1 = hsv_puzzle[seg1[:, int(y_first)], seg1[:, int(not y_first)]]
-    hsv2 = hsv_puzzle[seg2[:, int(y_first)], seg2[:, int(not y_first)]]
-    
-    # Running DTW on each individual color format (H, S, and V)
-    DTW_h = dtw(hsv1[:,0], hsv2[:,0], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
-    DTW_s = dtw(hsv1[:,1], hsv2[:,1], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
-    DTW_v = dtw(hsv1[:,2], hsv2[:,2], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
-    
-    # Summing all to get cumulative value        
-    dist = DTW_h.distance + DTW_s.distance + DTW_v.distance
-    norm_dist = DTW_h.normalizedDistance + DTW_s.normalizedDistance + DTW_v.normalizedDistance
-    
-    # Displaying all three:
-    if display:
-        # TODO: figure out how to title these (set_title doesn't work...)
-        print('Hue')
-        DTW_h.plot(type="threeway")
-        DTW_h.plot(type="twoway")
-
-        print('Saturation')
-        DTW_s.plot(type="threeway")
-        DTW_s.plot(type="twoway")
-
-        print('Value')
-        DTW_v.plot(type="threeway")
-        DTW_v.plot(type="twoway")
+#%% border unrolling by getting angles:
+def unroll(brdr):
+    # Using the Law of cosines for SSS case:
+    #       a
+    # P1 - - - P2
+    #         0  \  b
+    #     c       \
+    #              P3
+    # Angle 0 is:
+    #   cos^-1((a^2 + b^2 - c^2) / 2ab)
+    # example: https://www.desmos.com/calculator/1vu8qxarpx
+    angles = [] #TODO: optimize this by preallocating
+    for i in range(0,brdr.shape[0], 3):
+        p1 = brdr[i]
+        p2 = brdr[i+1]
+        p3 = brdr[i+2]
+        # calculating euclidian distances (l2 norm):
+        a = np.norm(p2-p3)
+        b = np.norm(p3-p1)
+        c = np.norm(p1-p2)
+        angle = np.arccos((c**2 - a**2 - b**2) / (-2*a*b))
+        angles.append(angle)
+        #TODO: need to be able to determine if the angle is a right(+) or a left (-) turn
+        # This can be done by drawing a line b/t p1 and p3 and seeing where p2 ends up on
+        #   This will determine if it is concave (left turn) or convex (right turn); 
+        #       (note that I am assuming we are traveling around the puzzle in a clockwise direction)
         
-    return dist, norm_dist
-
-# %% comparing with blurry
-# hsv_blr = cv.GaussianBlur(hsv_puzzle, ksize=(15,15), sigmaX=10)
-hsv_blr = cv.medianBlur(hsv_puzzle, ksize=61)
-plt.imshow(hsv_blr)
-match_color_distance(hsv_blr, seg1=b1_s[:,0], seg2=b2_s[:,0], distance_only=False, display=True)
-
-# %% Unrolling on one side only using approx
-ur_b1_s = b1_s[:,0][:,0]
-ur_b2_s = b2_s[:,0][:,0]
-ur_b3_s = b3_s[:,0][:,0]
-
-# normalizing this is needed for dtw to work 
-ur_b1_s = ur_b1_s / np.linalg.norm(ur_b1_s)
-ur_b2_s = ur_b2_s / np.linalg.norm(ur_b2_s)
-ur_b3_s = ur_b3_s / np.linalg.norm(ur_b3_s)
-
-plt.plot(ur_b1_s)
-plt.plot(ur_b2_s)
-plt.plot(ur_b3_s)
-
-# %% Using dtw to match, with only_distance flag on (no keep_internals)
-# a2 = dtw(ur_b1_s, ur_b2_s, keep_internals=True, distance_only=False)
-a2 = dtw(ur_b1_s, ur_b3_s, keep_internals=True, distance_only=False)
-
-# cannot display anything if distance_only is set!
-ax = a2.plot(type="threeway")
-a2.plot(type="twoway")
-print(a2.distance)
-print(a2.normalizedDistance)
+    return angles
+        
+        
+         
+        
+  
+#%%
+rot = rotate_points(b3[:,0])
+obs = b3[:,0][:,0]
 
 # %%
+bimg = points2img(b3[:,0])
+
+#%% border unrolling
+
+# n = num of observations:
+n = 4 # max is 360 -> observe for each 1 deg rotation
+step = 360//n
+sides = []
+for i in range(0, 360, step):
+    pts = np.array(rotate_points(b3[:,0], deg=i), dtype=int)
+    pt_img = points2img(pts)
+    unrolled = []
+    for j in range(pt_img.shape[0]):
+        obs_ps = np.where(pt_img[j] == 1)[0]
+        if obs_ps.shape[0] > 0:
+            unrolled.append(obs_ps[0])
+    sides.append(unrolled)
+    
+# %% displaying each side:
+curr = 0
+for i in range(n):
+    l = len(sides[i])
+    plt.scatter(list(range(curr, l+curr)), sides[i])
+    curr += l
+    
+plt.show()
+# %%
+brdr = []
+for i in sides:
+    for j in i:
+        brdr.append(j)
+plt.plot(brdr)
+
+# %% unrolling by extracting angles of 3 points
+

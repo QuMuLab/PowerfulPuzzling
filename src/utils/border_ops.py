@@ -30,6 +30,29 @@ def get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
         
     return out
 
+def points2img(points:np.array) -> np.array:
+    """
+    Converts a 2d list of points to a B&W image indicating locations of 
+    points with the value 1 (True).
+
+    Args:
+        points (np.array): The 2D list of points shape=(n,2).
+
+    Returns:
+        np.array: The image representing the points (0=no point, 1=point).
+    """
+    # getting bounding rect:
+    max_x, min_x = max(points[:,0]), min(points[:,0])
+    max_y, min_y = max(points[:,1]), min(points[:,1])
+    h, w = max_y - min_y, max_x - min_x
+    
+    # creating np.array to store image:
+    img = np.zeros((w+1,h+1,), dtype=bool)
+    for p in points:
+        x = p[0] - min_x
+        y = p[1] - min_y
+        img[x,y] = 1
+    return img
 
 def rotate_points(points:np.array, deg=1, inplace=True) -> np.array:
     """

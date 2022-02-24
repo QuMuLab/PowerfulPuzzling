@@ -74,7 +74,7 @@ class Matcher:
         # if passed check lower level features (more computational expensive)
         
         for i in range(360):
-            # rotating to observe from another section
+            # Rotating to observe from another section
             b1_r = rotate_points(b1, i)
             
             for j in range(360):
