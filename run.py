@@ -46,8 +46,9 @@ b3_s = b3[p3:p3+n]
 # display_border(b3_s)
 
 #%% border unrolling by getting angles:
-def unroll(brdr):
-    # Using the Law of cosines for SSS case:
+def unroll(brdr, sampling_rate=25):
+    # Using the Law of cosines for SSS case to determine angle 0'
+    # Then using slopes of lines formed by P1-P2 and P3-P2 to determine direction.
     #       a
     # P1 - - - P2 . . . .
     #         0  \  0'  b
@@ -55,7 +56,7 @@ def unroll(brdr):
     #              P3
     # Angle 0 is:
     #   cos^-1((a^2 + b^2 - c^2) / 2ab)
-    # Which we use to get 0' (the deviation from main line):
+    # Which we use to get 0' (the deviation from main line/heading):
     #   0' = 180 - 0
     #
     # We also need an adjustment term for the next step of determining direction.
@@ -68,71 +69,88 @@ def unroll(brdr):
     # Now we can determine if we are going left or right with the slope of the 
     # lines of P1-P2 and P2-P3 and the adj term:
     #     sign(((m1 - m2) / (1 + m1*m2)) * adj)
-    # See example here: https://www.desmos.com/calculator/lj4ukhyafd
+    #
+    # See more detail and example here: https://www.desmos.com/calculator/uo4dk85igo
     
-    angles = [] #TODO: optimize this by preallocating
-    for i in range(0, brdr.shape[0], 3):
-        p1 = brdr[i]
-        p2 = brdr[i+1]
-        p3 = brdr[i+2]
-        # calculating euclidian distances (l2 norm):
-        a = np.norm(p1-p2)
-        b = np.norm(p2-p3)
-        c = np.norm(p3-p1)
-        # Using law of cosines to get angle 0 in radians
-        angle = np.arccos((a**2 + b**2 - c**2) / (-2*a*b)) 
-        
-        # Determining if right or left turn (assuming clockwise rotation):
-        m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
-        m2 = (p3[1] - p2[1]) / (p3[0] - p2[0])
-        
-        # 1.57079632679 ~ π/2 = 90 deg
-        adj = angle - np.pi/2
-        # Theoretically 0 will never happen but just to make sure:
-        if adj == 0: adj = 1
-        sgn = np.sign(((m1 - m2) / (1 + m1*m2)) * adj)
-        
-        angles.append(sgn*angle)
+    angles = np.empty(shape=(brdr.shape[0]//sampling_rate - 1)) #TODO: optimize this by preallocating
+    with np.errstate(divide='ignore', invalid='ignore'):
+        idx = 0
+        for i in range(0, brdr.shape[0]-sampling_rate, sampling_rate): # TODO: overlapping?
+            p1 = brdr[i]
+            p2 = brdr[i+sampling_rate//2]
+            p3 = brdr[i+sampling_rate]
+            # calculating euclidian distances (l2 norm):
+            a = np.linalg.norm(p1-p2)
+            b = np.linalg.norm(p2-p3)
+            c = np.linalg.norm(p3-p1)
+            # Using law of cosines to get angle 0 in radians
+            angle = np.arccos((a**2 + b**2 - c**2) / (-2*a*b)) 
+            
+            # Determining if right or left turn (assuming clockwise rotation):
+            m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+            m2 = (p3[1] - p2[1]) / (p3[0] - p2[0])
+            
+            if m1!=inf and m2!=inf and m1!=0 and m2!=0: # ignoring sign adjustment when perfectly horizontal or vertical
+                # 1.57079632679 ~ π/2 = 90 deg
+                adj = angle - np.pi/2
+                # Theoretically 0 will never happen (b/c pi is irrational) but just to make sure:
+                if adj == 0 : adj = 1
+                sgn = np.sign(((m1 - m2) / (1 + m1*m2)) * adj)
+                angle *= sgn
+            
+            angles[idx] = angle
+            idx += 1
     return angles      
         
-  
-#%%
-rot = rotate_points(b3[:,0])
-obs = b3[:,0][:,0]
-
-# %%
-bimg = points2img(b3[:,0])
-
-#%% border unrolling
-
-# n = num of observations:
-n = 4 # max is 360 -> observe for each 1 deg rotation
-step = 360//n
-sides = []
-for i in range(0, 360, step):
-    pts = np.array(rotate_points(b3[:,0], deg=i), dtype=int)
-    pt_img = points2img(pts)
-    unrolled = []
-    for j in range(pt_img.shape[0]):
-        obs_ps = np.where(pt_img[j] == 1)[0]
-        if obs_ps.shape[0] > 0:
-            unrolled.append(obs_ps[0])
-    sides.append(unrolled)
-    
-# %% displaying each side:
-curr = 0
-for i in range(n):
-    l = len(sides[i])
-    plt.scatter(list(range(curr, l+curr)), sides[i])
-    curr += l
-    
-plt.show()
-# %%
-brdr = []
-for i in sides:
-    for j in i:
-        brdr.append(j)
-plt.plot(brdr)
-
 # %% unrolling by extracting angles of 3 points
+display_border(b1_s)
+plt.show()
+display_border(b2_s)
+plt.show()
+
+b1_s_ur = unroll(b1_s[:,0])
+b2_s_ur = unroll(b2_s[:,0])
+plt.plot(b1_s_ur)
+plt.plot([-x for x in b2_s_ur])
+
+
+#%%
+
+#%%
+# rot = rotate_points(b3[:,0])
+# obs = b3[:,0][:,0]
+
+# # %%
+# bimg = points2img(b3[:,0])
+
+# #%% border unrolling
+
+# # n = num of observations:
+# n = 4 # max is 360 -> observe for each 1 deg rotation
+# step = 360//n
+# sides = []
+# for i in range(0, 360, step):
+#     pts = np.array(rotate_points(b3[:,0], deg=i), dtype=int)
+#     pt_img = points2img(pts)
+#     unrolled = []
+#     for j in range(pt_img.shape[0]):
+#         obs_ps = np.where(pt_img[j] == 1)[0]
+#         if obs_ps.shape[0] > 0:
+#             unrolled.append(obs_ps[0])
+#     sides.append(unrolled)
+    
+# # %% displaying each side:
+# curr = 0
+# for i in range(n):
+#     l = len(sides[i])
+#     plt.scatter(list(range(curr, l+curr)), sides[i])
+#     curr += l
+    
+# plt.show()
+# # %%
+# brdr = []
+# for i in sides:
+#     for j in i:
+#         brdr.append(j)
+# plt.plot(brdr)
 
