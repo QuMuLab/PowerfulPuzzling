@@ -1,1 +1,1 @@
-from src.utils.border_ops import *
+from src.utils import border_ops

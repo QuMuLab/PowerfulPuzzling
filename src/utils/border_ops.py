@@ -7,6 +7,43 @@ from typing import Tuple
 import numpy as np
 from cmath import inf
 
+def determine_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
+    """
+    High-level determination of the shape of an unrolled border segment using np.polyfit.
+    Possible shapes are:
+            1) Concave (\\\/)\n
+            0) Linear (--)\n
+        -1) Convex (/\\\)\n
+    
+    This is determined by looking at the constant in a 2nd order polynomial fitted to the 
+    points and seeing if it is - (convex), + (concave), or ~0 (linear).
+
+    Args:
+        border_segment (np.array): The unrolled border segment shape must be (x,) 
+                where x is the number of points making up the border.
+        cutoff (float, optional): The cutoff for classification (e.g.: a cutoff of 1 
+                means linear is anything between -1 and 1 coeff). Defaults to 0.0 
+                (no linear aspect).
+        
+    Returns:
+        Tuple[int, Tuple[float]]: The determined shape (0-2) and the coefficents for the 
+                polynomial.
+    
+    References:
+        - np.polyFit: https://numpy.org/doc/stable/reference/generated/numpy.polyfit.html
+    """
+    # poly is a 3-tuple of the coeffs a,b, and c: (a*x^2 + b*x + c)
+    poly = np.polyfit(x=border_segment, y=list(range(border_segment.shape[0]), deg=2))
+            
+    if poly[0] > cutoff:
+        shape = 1
+    elif poly[0] < cutoff:
+        shape = -1
+    else:
+        shape = 0
+    
+    return shape, poly
+
 def unroll_border(brdr:np.array, sampling_rate=25):
     """
     Function to unroll a border's geometry by sampling points on the border and determining 
