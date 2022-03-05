@@ -5,6 +5,72 @@ This script just contains helper functions that might be useful for border opera
 """
 from typing import Tuple
 import numpy as np
+from cmath import inf
+
+def unroll_border(brdr:np.array, sampling_rate=25):
+    """
+    Function to unroll a border's geometry by sampling points on the border and determining 
+    the angle of deviation.
+    
+        Angle determination is done by utilizing the Law of cosines for SSS case to determine angle 0'
+        Then using slopes of lines formed by P1-P2 and P3-P2 to determine direction.
+            a
+        P1 - - - P2 - - - -
+                θ  \  θ'  b
+            c       \
+                    P3
+        Angle θ is:
+            cos^-1((a^2 + b^2 - c^2) / 2ab)
+        Which we use to get θ' (the deviation from main line/heading):
+            θ' = 180 - θ
+        
+        We also need an adjustment term for the next step of determining direction.
+        This is because by the nature of arccos, if angle is greater than 90 deg 
+        then the sign will flip so this ensures that it stays the same sign:
+            adj = 90 - θ'
+            90 - adj = 180 - θ
+            adj = θ - 90
+        
+        Now we can determine if we are going left or right with the slope of the 
+        lines of P1-P2 and P2-P3 and the adj term:
+            sign(((m1 - m2) / (1 + m1*m2)) * adj)
+        
+        See more detail and example here: https://www.desmos.com/calculator/uo4dk85igo
+
+    Args:
+        brdr (np.array): The border to unroll
+        sampling_rate (int, optional): How often to sample points for angle. Defaults to 25.
+
+    Returns:
+        np.array: the Array of angles representing the unrolled border.
+    """
+    
+    angles = [] #TODO: optimize this by preallocating
+    with np.errstate(divide='ignore', invalid='ignore'):
+        for i in range(0, brdr.shape[0]-sampling_rate, sampling_rate): # TODO: overlapping?
+            p1 = brdr[i]
+            p2 = brdr[i+sampling_rate//2]
+            p3 = brdr[i+sampling_rate]
+            # calculating euclidian distances (l2 norm):
+            a = np.linalg.norm(p1-p2)
+            b = np.linalg.norm(p2-p3)
+            c = np.linalg.norm(p3-p1)
+            # Using law of cosines to get angle θ in radians
+            angle = np.arccos((a**2 + b**2 - c**2) / (-2*a*b)) 
+            
+            # Determining if right or left turn (assuming clockwise rotation):
+            m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+            m2 = (p3[1] - p2[1]) / (p3[0] - p2[0])
+            
+            if m1!=inf and m2!=inf and m1!=0 and m2!=0: # ignoring sign adjustment when perfectly horizontal or vertical
+                # 1.57079632679 ~ π/2 = 90 deg
+                adj = angle - np.pi/2
+                # Theoretically 0 will never happen (b/c pi is irrational) but just to make sure:
+                if adj == 0 : adj = 1
+                sgn = np.sign(((m1 - m2) / (1 + m1*m2)) * adj)
+                angle *= sgn
+            angles.append(angle)
+    return angles  
 
 def get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
     """
