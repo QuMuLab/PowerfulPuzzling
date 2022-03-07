@@ -4,90 +4,153 @@ from cmath import inf
 from src.app import get_hint, complete_puzzle
 from src.border_matching import Matcher
 from src.segmentation.FIXME import get_image_and_border
+from src.utils import rotate_points, points2img
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 import numpy as np
+from typing import Tuple
 import cv2 as cv
+from dtw import dtw, rabinerJuangStepPattern
 
 # %%
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
-print(img.shape)
 m = Matcher(img)
 plt.imshow(img)
+plt.show()
 
 # %%
 def display_border(border, **kwargs):
+    print(border.shape)
     n = border.shape[0]
     b = border.reshape(n, 2)
     plt.scatter(b[:,0], b[:,1], **kwargs)
 
-#%% pieces 0 and 2 can connect on one side:
-display_border(borders[0])
-display_border(borders[2], c='r')
-
-#%% Splitting up the border
-# length of one piece is around 400-500 pixels
+#%% Pieces 0 and 2 can connect on one side:
 b1 = borders[0]
 b2 = borders[2]
+b3 = borders[5] # non-matching piece
+# display_border(b1)
+# display_border(b2)
+display_border(b3)
+plt.show()
 
-# x,y,w,h = cv.boundingRect(b1)
-# plt.xlim(x,x+w)
-# plt.ylim(y,y+h)
-n=450
-best_match_i = [0,0] # index for the best matching group
-best_score = inf # the lower the score the better (best is 0)
-
-
-for p1 in range(0,len(b1), n):
-    plt.scatter(b1[:,0][:,0], b1[:,0][:,1], c='g')
-    plt.scatter(b2[:,0][:,0], b2[:,0][:,1], c='g')
-    b1_s = b1[p1:p1+n]
-    for p2 in range(0, len(b2), n):
-        b2_s = b2[p2:p2+n]
-        score = cv.matchShapes(b1_s, b2_s, 2,0.0)
-        if best_score > score:
-            print("new best:", score)
-            best_score = score
-            best_match_i = [p1, p2]
-            plt.scatter(b1_s[:,0][:,0], b1_s[:,0][:,1], c='r')
-            plt.scatter(b2_s[:,0][:,0], b2_s[:,0][:,1], c='r')
-            plt.show()
-            plt.scatter(b1[:,0][:,0], b1[:,0][:,1], c='g')
-            plt.scatter(b2[:,0][:,0], b2[:,0][:,1], c='g')
-        
-    
-# score = cv.matchShapes(b1_s[0], b1_s[0])
-
-
- # %%
-p1,p2 = best_match_i
-plt.scatter(b1[:,0][:,0], b1[:,0][:,1])
-plt.scatter(b2[:,0][:,0], b2[:,0][:,1])
-
-# %%
-# Matching segment is at (index positions):
-#   b1: 1420-1870
-#   b2: 2320-2770
+# %% Getting appropriate segments:
 p1 = 1420
 p2 = 2320
+p3 = 3540
 n = 450
 b1_s = b1[p1:p1+n]
 b2_s = b2[p2:p2+n]
-score = cv.matchShapes(b1_s, b2_s, 1, None)
-print('score is', score)
-plt.scatter(b1[:,0][:,0], b1[:,0][:,1], c='g')
-plt.scatter(b2[:,0][:,0], b2[:,0][:,1], c='g')
-plt.scatter(b1_s[:,0][:,0], b1_s[:,0][:,1], c='r')
-plt.scatter(b2_s[:,0][:,0], b2_s[:,0][:,1], c='r')
-# %% overlaying the two segements
-x1,y1,w,h = cv.boundingRect(b1_s)
-b1_s0 = np.array([[p[0]-x1, p[1]-y1] for p in b1_s[:,0]])
-x2,y2,w,h = cv.boundingRect(b2_s)
-b2_s0 = np.array([[p[0]-x2, p[1]-y2] for p in b2_s[:,0]])
+b3_s = b3[p3:p3+n]
+# display_border(borders[1])
+# display_border(b3_s)
 
-plt.scatter(b1_s0[:,0], b1_s0[:,1], c='g')
-plt.scatter(b2_s0[:,0], b2_s0[:,1], c='r')
-# %% getting score for zeroed border
-score = cv.matchShapes(b1_s0, b2_s0, 1, None)
-print('score is', score)
+#%% border unrolling by getting angles:
+def unroll(brdr, sampling_rate=25):
+    # Using the Law of cosines for SSS case to determine angle 0'
+    # Then using slopes of lines formed by P1-P2 and P3-P2 to determine direction.
+    #       a
+    # P1 - - - P2 . . . .
+    #         0  \  0'  b
+    #     c       \
+    #              P3
+    # Angle 0 is:
+    #   cos^-1((a^2 + b^2 - c^2) / 2ab)
+    # Which we use to get 0' (the deviation from main line/heading):
+    #   0' = 180 - 0
+    #
+    # We also need an adjustment term for the next step of determining direction.
+    # This is because by the nature of arccos, if angle is greater than 90 deg 
+    # then the sign will flip so this ensures that it stays the same sign:
+    #   adj = 90 - 0'
+    #   90 - adj = 180 - 0
+    #   adj = 0 - 90
+    #
+    # Now we can determine if we are going left or right with the slope of the 
+    # lines of P1-P2 and P2-P3 and the adj term:
+    #     sign(((m1 - m2) / (1 + m1*m2)) * adj)
+    #
+    # See more detail and example here: https://www.desmos.com/calculator/uo4dk85igo
+    
+    angles = np.empty(shape=(brdr.shape[0]//sampling_rate - 1)) #TODO: optimize this by preallocating
+    with np.errstate(divide='ignore', invalid='ignore'):
+        idx = 0
+        for i in range(0, brdr.shape[0]-sampling_rate, sampling_rate): # TODO: overlapping?
+            p1 = brdr[i]
+            p2 = brdr[i+sampling_rate//2]
+            p3 = brdr[i+sampling_rate]
+            # calculating euclidian distances (l2 norm):
+            a = np.linalg.norm(p1-p2)
+            b = np.linalg.norm(p2-p3)
+            c = np.linalg.norm(p3-p1)
+            # Using law of cosines to get angle 0 in radians
+            angle = np.arccos((a**2 + b**2 - c**2) / (-2*a*b)) 
+            
+            # Determining if right or left turn (assuming clockwise rotation):
+            m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
+            m2 = (p3[1] - p2[1]) / (p3[0] - p2[0])
+            
+            if m1!=inf and m2!=inf and m1!=0 and m2!=0: # ignoring sign adjustment when perfectly horizontal or vertical
+                # 1.57079632679 ~ π/2 = 90 deg
+                adj = angle - np.pi/2
+                # Theoretically 0 will never happen (b/c pi is irrational) but just to make sure:
+                if adj == 0 : adj = 1
+                sgn = np.sign(((m1 - m2) / (1 + m1*m2)) * adj)
+                angle *= sgn
+            
+            angles[idx] = angle
+            idx += 1
+    return angles      
+        
+# %% unrolling by extracting angles of 3 points
+display_border(b1_s)
+plt.show()
+display_border(b2_s)
+plt.show()
 
-# %%
+b1_s_ur = unroll(b1_s[:,0])
+b2_s_ur = unroll(b2_s[:,0])
+plt.plot(b1_s_ur)
+plt.plot([-x for x in b2_s_ur])
+
+
+#%%
+
+#%%
+# rot = rotate_points(b3[:,0])
+# obs = b3[:,0][:,0]
+
+# # %%
+# bimg = points2img(b3[:,0])
+
+# #%% border unrolling
+
+# # n = num of observations:
+# n = 4 # max is 360 -> observe for each 1 deg rotation
+# step = 360//n
+# sides = []
+# for i in range(0, 360, step):
+#     pts = np.array(rotate_points(b3[:,0], deg=i), dtype=int)
+#     pt_img = points2img(pts)
+#     unrolled = []
+#     for j in range(pt_img.shape[0]):
+#         obs_ps = np.where(pt_img[j] == 1)[0]
+#         if obs_ps.shape[0] > 0:
+#             unrolled.append(obs_ps[0])
+#     sides.append(unrolled)
+    
+# # %% displaying each side:
+# curr = 0
+# for i in range(n):
+#     l = len(sides[i])
+#     plt.scatter(list(range(curr, l+curr)), sides[i])
+#     curr += l
+    
+# plt.show()
+# # %%
+# brdr = []
+# for i in sides:
+#     for j in i:
+#         brdr.append(j)
+# plt.plot(brdr)
+
