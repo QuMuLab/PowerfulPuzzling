@@ -1,3 +1,4 @@
+from os import stat
 from typing import Tuple
 from cmath import inf
 
@@ -6,7 +7,7 @@ from dtw import dtw
 import numpy as np
 import cv2 as cv
 
-from src.utils import rotate_points
+from src.utils.border_ops import rotate_points, unroll_border, determine_shape
 
 class Matcher:
     def __init__(self, original_image: np.array, piece_size=400, ksize=61) -> None:
@@ -72,13 +73,23 @@ class Matcher:
         #   concave vs convex vs linear
         #   General matching clusters of colors
         # if passed check lower level features (more computational expensive)
-        
-        for i in range(360):
-            # Rotating to observe from another section
-            b1_r = rotate_points(b1, i)
-            
-            for j in range(360):
-                b2_r = rotate_points(b2, j)
+        # Unrolling the border by sampling for angles
+        b1_angles = unroll_border(b1)
+        b2_angles = unroll_border(b2)
+        for p1 in range(b1.shape[0]):
+            for p2 in range(b2.shape[0]):
+                seg1 = b1[p1:p1+self.piece_size]
+                seg2 = b2[p2:p2+self.piece_size]
+                
+                # high level matching by concavity
+                shape1 = determine_shape(b1_angles[p1:p1+self.piece_size])
+                shape2 = determine_shape(b2_angles[p2:p2+self.piece_size])
+                
+                if ((shape1 != 0 and shape2 != 0) and # making sure that neither are flat segments
+                    shape1 == -shape2): # making sure that they are inverted shapes (convex matching with concave)
+                    # matching shape:
+                    # matching color
+                    pass
                 
 
     def match_color_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
@@ -105,7 +116,7 @@ class Matcher:
         assert not (distance_only and display), 'Cannot display anything if distance_only is also set.'
         assert seg1.shape[-1] == 2 and \
                 seg2.shape[-1] == 2, "Passed in segments must be pixel positions for the colors!"
-        assert len(seg1.shape) == 2 and len(seg2.shape) == 2, "Segment shape must be (n, 2)!"
+        assert len(seg1.shape) == 2 and len(seg2.shape) == 2, f"Segment shapes must be (n, 2)! Got {seg1.shape} and {seg2.shape}."
         
         # Extracting the HSV values
         hsv1 = self.hsv_puzzle[seg1[:, int(y_first)], seg1[:, int(not y_first)]]
@@ -127,7 +138,7 @@ class Matcher:
             print('Hue')
             DTW_h.plot(type="threeway")
             DTW_h.plot(type="twoway")
-
+ 
             print('Saturation')
             DTW_s.plot(type="threeway")
             DTW_s.plot(type="twoway")
@@ -138,7 +149,8 @@ class Matcher:
             
         return dist, norm_dist
 
-    def match_shape_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2", 
+    @staticmethod
+    def match_shape_distance(seg1:np.array, seg2:np.array, step_pattern="symmetric2", 
                          distance_only=True, display=False) -> Tuple[float, float]:
         """
         This uses Dynamic Time Warping (DTW) and returns the normalized distance 
@@ -174,44 +186,7 @@ class Matcher:
             aligned.plot(type="threeway")
             aligned.plot(type="twoway")
         return aligned.distance, aligned.normalizedDistance
-    
-    def determine_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
-        """
-        High-level determination of the shape of an unrolled border segment using np.polyfit.
-        Possible shapes are:
-             1) Concave (\\\/)\n
-             0) Linear (--)\n
-            -1) Convex (/\\\)\n
         
-        This is determined by looking at the constant in a 2nd order polynomial fitted to the 
-        points and seeing if it is - (convex), + (concave), or ~0 (linear).
-
-        Args:
-            border_segment (np.array): The unrolled border segment shape must be (x,) 
-                    where x is the number of points making up the border.
-            cutoff (float, optional): The cutoff for classification (e.g.: a cutoff of 1 
-                    means linear is anything between -1 and 1 coeff). Defaults to 0.0 
-                    (no linear aspect).
-            
-        Returns:
-            Tuple[int, Tuple[float]]: The determined shape (0-2) and the coefficents for the 
-                    polynomial.
-        
-        References:
-            - np.polyFit: https://numpy.org/doc/stable/reference/generated/numpy.polyfit.html
-        """
-        # poly is a 3-tuple of the coeffs a,b, and c: (a*x^2 + b*x + c)
-        poly = np.polyfit(x=border_segment, y=list(range(border_segment.shape[0]), deg=2))
-             
-        if poly[0] > cutoff:
-            shape = 1
-        elif poly[0] < cutoff:
-            shape = -1
-        else:
-            shape = 0
-        
-        return shape, poly
-    
     def determine_colors(self, border_segment:np.array) -> np.array:  # REVIEW: is this necessary?
         """
         High level identification of the colors in the border segment.
