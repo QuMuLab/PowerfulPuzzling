@@ -7,33 +7,63 @@ from typing import Tuple
 import numpy as np
 from cmath import inf
 
-def determine_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
+def determine_shape(b_angles:np.array, cutoff=0.1) -> int:
     """
-    High-level determination of the shape of an unrolled border segment using np.polyfit.
+    Determines the high level border shape based off of the ANGLES of an unrolled border.
+
     Possible shapes are:
             1) Concave (\\\/)\n
             0) Linear (--)\n
-        -1) Convex (/\\\)\n
+           -1) Convex (/\\\)\n
+           
+    Args:
+        b_angles (np.array): the unrolled border angles
+        cutoff (float, optional): _description_. Defaults to 0.01.
+
+    Returns:
+        int: The determined shape (1,0,-1)
+    """
+    m = np.mean(b_angles)
+    
+    if m > cutoff:
+        shape = 1
+    elif m < cutoff:
+        shape = -1
+    else:
+        shape = 0
+    
+    return shape
+
+def get_poly_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
+    """
+    High-level determination of the shape of an border segment using np.polyfit.
+    
+    NOTE: The border must be a true unrolled border (not angles)
+    
+    Possible shapes are:
+            1) Concave (\\\/)\n
+            0) Linear (--)\n
+           -1) Convex (/\\\)\n
     
     This is determined by looking at the constant in a 2nd order polynomial fitted to the 
     points and seeing if it is - (convex), + (concave), or ~0 (linear).
 
     Args:
-        border_segment (np.array): The unrolled border segment shape must be (x,) 
+        border_segment (np.array): The border segment shape must be (x,) 
                 where x is the number of points making up the border.
         cutoff (float, optional): The cutoff for classification (e.g.: a cutoff of 1 
                 means linear is anything between -1 and 1 coeff). Defaults to 0.0 
                 (no linear aspect).
         
     Returns:
-        Tuple[int, Tuple[float]]: The determined shape (0-2) and the coefficents for the 
+        Tuple[int, Tuple[float]]: The determined shape (1,0,-1) and the coefficents for the 
                 polynomial.
     
     References:
         - np.polyFit: https://numpy.org/doc/stable/reference/generated/numpy.polyfit.html
     """
     # poly is a 3-tuple of the coeffs a,b, and c: (a*x^2 + b*x + c)
-    poly = np.polyfit(x=border_segment, y=list(range(border_segment.shape[0]), deg=2))
+    poly = np.polyfit(x=list(range(border_segment.shape[0])), y=border_segment, deg=2)
             
     if poly[0] > cutoff:
         shape = 1
@@ -44,7 +74,7 @@ def determine_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[fl
     
     return shape, poly
 
-def unroll_border(brdr:np.array, sampling_rate=25):
+def unroll_border(brdr:np.array, sampling_rate=25) -> np.array:
     """
     Function to unroll a border's geometry by sampling points on the border and determining 
     the angle of deviation.
@@ -81,6 +111,8 @@ def unroll_border(brdr:np.array, sampling_rate=25):
     Returns:
         np.array: the Array of angles representing the unrolled border.
     """
+    assert brdr.shape[-1] == 2, "Passed in border must be pixel positions!"
+    assert len(brdr.shape) == 2, f"Segment shapes must be (n, 2)! Got {brdr.shape}."
     
     angles = [] #TODO: optimize this by preallocating
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -88,10 +120,12 @@ def unroll_border(brdr:np.array, sampling_rate=25):
             p1 = brdr[i]
             p2 = brdr[i+sampling_rate//2]
             p3 = brdr[i+sampling_rate]
-            # calculating euclidian distances (l2 norm):
+            
+            # Calculating euclidian distances (L2 norm):
             a = np.linalg.norm(p1-p2)
             b = np.linalg.norm(p2-p3)
             c = np.linalg.norm(p3-p1)
+            
             # Using law of cosines to get angle θ in radians
             angle = np.arccos((a**2 + b**2 - c**2) / (-2*a*b)) 
             
@@ -99,7 +133,7 @@ def unroll_border(brdr:np.array, sampling_rate=25):
             m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
             m2 = (p3[1] - p2[1]) / (p3[0] - p2[0])
             
-            if m1!=inf and m2!=inf and m1!=0 and m2!=0: # ignoring sign adjustment when perfectly horizontal or vertical
+            if abs(m1)!=inf and abs(m2)!=inf and m1!=0 and m2!=0: # ignoring sign adjustment when perfectly horizontal or vertical
                 # 1.57079632679 ~ π/2 = 90 deg
                 adj = angle - np.pi/2
                 # Theoretically 0 will never happen (b/c pi is irrational) but just to make sure:
@@ -107,7 +141,7 @@ def unroll_border(brdr:np.array, sampling_rate=25):
                 sgn = np.sign(((m1 - m2) / (1 + m1*m2)) * adj)
                 angle *= sgn
             angles.append(angle)
-    return angles  
+    return np.array(angles)
 
 def get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
     """
@@ -123,7 +157,7 @@ def get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:
     Returns:
         np.array: The list of values from a to b outputted by the polynomial function.
     """
-    out = np.array([])
+    out = []
     order = len(coeff) - 1 # the polynomial order
     for x in range(a, b, steps):
         y = 0
@@ -195,3 +229,42 @@ def rotate_points(points:np.array, deg=1, inplace=True) -> np.array:
     else:
         rotated = points@rot_mat
     return rotated
+
+#Alternate border unrolling: # TODO: delete when testing is done.
+
+# rot = rotate_points(b3[:,0])
+# obs = b3[:,0][:,0]
+
+# # %%
+# bimg = points2img(b3[:,0])
+
+#border unrolling
+
+# # n = num of observations:
+# n = 4 # max is 360 -> observe for each 1 deg rotation
+# step = 360//n
+# sides = []
+# for i in range(0, 360, step):
+#     pts = np.array(rotate_points(b3[:,0], deg=i), dtype=int)
+#     pt_img = points2img(pts)
+#     unrolled = []
+#     for j in range(pt_img.shape[0]):
+#         obs_ps = np.where(pt_img[j] == 1)[0]
+#         if obs_ps.shape[0] > 0:
+#             unrolled.append(obs_ps[0])
+#     sides.append(unrolled)
+    
+# # %% displaying each side:
+# curr = 0
+# for i in range(n):
+#     l = len(sides[i])
+#     plt.scatter(list(range(curr, l+curr)), sides[i])
+#     curr += l
+    
+# plt.show()
+# # %%
+# brdr = []
+# for i in sides:
+#     for j in i:
+#         brdr.append(j)
+# plt.plot(brdr)
