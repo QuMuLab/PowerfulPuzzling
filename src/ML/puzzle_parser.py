@@ -8,9 +8,8 @@ import random
 import math
 import numpy as np
 import skimage.io
-import matplotlib
 import matplotlib.pyplot as plt
-
+from imgaug import augmenters as iaa
 from puzzle_dataset import PuzzleDataset
 
 # Setup the backend as tensorflow so we are not using theano
@@ -45,7 +44,7 @@ class PuzzleConfig(Config):
     # GPU_COUNT = 8
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 80
+    NUM_CLASSES = 1 + 1
 
 
 class InferencePuzzleConfig(PuzzleConfig):
@@ -58,13 +57,13 @@ class InferencePuzzleConfig(PuzzleConfig):
     IMAGES_PER_GPU = 1
     GPU_COUNT = 1
     NUM_CLASSES = 1 + 1 # custom object + background
-    DETECTION_MAX_INSTANCES = 1 # looking for only one piece per validation image
+    DETECTION_MAX_INSTANCES = 500
 
 
 class PuzzleParserMode:
     # Static variables to make choosing a mode easier
     INFERENCE = "inference"
-    TRAIN = "train"
+    TRAIN = "training"
 
 
 class PuzzleParser:
@@ -77,13 +76,13 @@ class PuzzleParser:
         self.__log_dir = log_dir
 
         # Set the mode and config
-        print(mode)
         mode = mode.lower()
-        assert mode in ["inference", "train"], "Mode must be either train or inference!"
-        self.__config = PuzzleConfig() if mode == "train" else InferencePuzzleConfig()
+        assert mode in [PuzzleParserMode.TRAIN,
+                        PuzzleParserMode.INFERENCE], "Mode must be either train or inference!"
+        self.__config = PuzzleConfig() if mode == PuzzleParserMode.TRAIN else InferencePuzzleConfig()
 
         # Create the model
-        self.__model = modellib.MaskRCNN(mode=mode, model_dir=self.__log_dir, config=self.__config)
+        self.__model = modellib.MaskRCNN(mode=str(mode), model_dir=self.__log_dir, config=self.__config)
 
         # Initialize our class names
         self.__class_names = None
@@ -109,7 +108,44 @@ class PuzzleParser:
     def display_config(self):
         self.__config.display()
 
-    def train_model(self, epochs=30, layers='heads'):
+    def get_best_model(self):
+        # Lady load glob
+        from glob import glob
+
+        # Look at each file in the logs dir
+        log_directories = glob(f"{self.__log_dir}/*")
+
+        # If there are no files raise value error
+        # If there is only one file then return that file
+        if len(log_directories) == 0:
+            raise ValueError("No model logs present!")
+        elif len(log_directories) == 1:
+            return glob(f"{log_directories[0]}/*.h5")[0]
+
+        # Lazy load tensorboard's event accumulator
+        from tensorboard.backend.event_processing import event_accumulator
+
+        # Loop through each file and file the best one
+        best_file = None
+        for dir in log_directories:
+            # Grab each file from the log
+            weights = glob(f"{dir}/*.h5")[0]
+            tb_log_file = glob(f"{dir}/*events.out.tfevents*")[0]
+
+            # Check the validation loss
+            ea = event_accumulator.EventAccumulator(tb_log_file, size_guidance={event_accumulator.SCALARS: 0})
+            ea.Reload()
+
+            # Get validation loss
+            val_loss = ea.Scalars('val_loss')[-1].value
+
+            # Update best weights
+            if best_file is None or val_loss < best_file[0]:
+                best_file = (val_loss, weights)
+
+        return best_file[1]
+
+    def train_model(self, island_dir, epochs=30, layers='heads', callbacks=[]):
         """[summary]
 
         Args:
@@ -119,23 +155,37 @@ class PuzzleParser:
 
         # Training dataset.
         dataset_train = PuzzleDataset()
-        dataset_train.load_island(args.dataset, "train")
+        dataset_train.load_island(island_dir, "train")
         dataset_train.prepare()
 
         # Validation dataset
         dataset_val = PuzzleDataset()
-        dataset_val.load_island(args.dataset, "val")
+        dataset_val.load_island(island_dir, "val")
         dataset_val.prepare()
 
-        # *** This training schedule is an example. Update to your needs ***
+        # Set up some augmentations
+        augmentation = iaa.SomeOf((0, 2), [
+        iaa.Fliplr(0.5),
+        iaa.Flipud(0.5),
+        iaa.OneOf([iaa.Affine(rotate=90),
+                   iaa.Affine(rotate=180),
+                   iaa.Affine(rotate=270)]),
+        iaa.Multiply((0.8, 1.5)),
+        iaa.GaussianBlur(sigma=(0.0, 5.0))
+    ])
+
         # Since we're using a very small dataset, and starting from
         # COCO trained weights, we don't need to train too long. Also,
         # no need to train all layers, just the heads should do it.
         print("Training network heads")
+        print(f"Training Size: {len(dataset_train.image_ids)}")
+        print(f"Validation Size: {len(dataset_val.image_ids)}")
         self.__model.train(dataset_train, dataset_val,
-                           learning_rate=config.LEARNING_RATE,
+                           learning_rate=self.__config.LEARNING_RATE,
                            epochs=epochs,
-                           layers=layers)
+                           layers=layers,
+                           augmentation=augmentation,
+                           custom_callbacks=callbacks)
 
     def display_test(self, image_path: str):
         # Make sure we have names
@@ -147,7 +197,7 @@ class PuzzleParser:
             image = image[:,:,:3]
 
         # Run detection
-        results = self.__model.detect(image, verbose=1)
+        results = self.__model.detect([image], verbose=1)
 
         # Visualize results
         r = results[0]
@@ -183,7 +233,7 @@ class PuzzleParser:
             print("{:3}. {:50}".format(i, info['name']))
 
         # Load and display random samples
-        image_ids = np.random.choice(dataset.image_ids,1)
+        image_ids = np.random.choice(dataset.image_ids, 10)
         for image_id in image_ids:
             image = dataset.load_image(image_id)
             mask, class_ids = dataset.load_mask(image_id)
@@ -206,116 +256,12 @@ class PuzzleParser:
         visualize.display_instances(image, bbox, mask, class_ids, dataset.class_names)
 
 
-# class_names = ['BG', 'person', 'bicycle', 'car', 'motorcycle', 'airplane',
-#                'bus', 'train', 'truck', 'boat', 'traffic light',
-#                'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird',
-#                'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear',
-#                'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie',
-#                'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
-#                'kite', 'baseball bat', 'baseball glove', 'skateboard',
-#                'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup',
-#                'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
-#                'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
-#                'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed',
-#                'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote',
-#                'keyboard', 'cell phone', 'microwave', 'oven', 'toaster',
-#                'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors',
-#                'teddy bear', 'hair drier', 'toothbrush']
+class_names = ["BG", "pp"]
 
-# class_names = ["BG", "pp"]
+pp = PuzzleParser("src/ML/logs", PuzzleParserMode.TRAIN)
+# pp.load_weights("/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/src/ML/mask_rcnn_coco.h5")
 
-
-# pp = PuzzleParser("src/ML/logs", PuzzleParserMode.INFERENCE)
-# pp.load_weights("src/ML/mask_rcnn_piece_0020.h5")
-# pp.set_class_names(class_names)
+pp.load_weights("/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/src/ML/mask_rcnn_coco.h5", exclude=[ "mrcnn_class_logits", "mrcnn_bbox_fc", "mrcnn_bbox", "mrcnn_mask"])
+pp.set_class_names(class_names)
 # pp.visualize("/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/dataset/mask_rcnn")
-
-
-if __name__ == '__main__':
-    import argparse
-
-
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description='Train Mask R-CNN to detect balloons.')
-    parser.add_argument("command",
-                        metavar="<command>",
-                        help="'train' or 'inference'")
-    parser.add_argument('--dataset', required=False,
-                        metavar="/path/to/island/dataset/",
-                        help='Directory of the island dataset')
-    parser.add_argument('--weights', required=True,
-                        metavar="/path/to/weights.h5",
-                        help="Path to weights .h5 file or 'coco'")
-    parser.add_argument('--logs', required=False,
-                        metavar="/path/to/logs/",
-                        help='Logs and checkpoints directory (default=logs/)')
-    parser.add_argument('--image', required=False,
-                        metavar="path or URL to image",
-                        help='Image to inference on')
-    args = parser.parse_args()
-
-    # inference arguments
-    if args.command == "train":
-        assert args.dataset, "Argument --dataset is required for training"
-    elif args.command == "inference":
-        assert args.image or args.video,\
-            "Provide --image or --video to inference network"
-
-    print("Weights: ", args.weights)
-    print("Dataset: ", args.dataset)
-    print("Logs: ", args.logs)
-
-    # Configurations
-    if args.command == "train":
-        config = PuzzleConfig()
-    else:
-        config = InferencePuzzleConfig()
-    config.display()
-
-    # Create model
-    if args.command == "train":
-        model = PuzzleParser(mode = PuzzleParserMode.TRAIN,
-                             log_dir=args.log)
-    else:
-        model = PuzzleParser(mode=PuzzleParserMode.INFERENCE,
-                             log_dir=args.log)
-
-    # Set our class names
-    model.set_class_names(["BG", "ISLAND"])
-
-    # Select weights file to load
-    if args.weights.lower() == "coco":
-        weights_path = "mask_rcnn_coco.h5"
-        # Download weights file
-        if not os.path.exists(weights_path):
-            utils.download_trained_weights(weights_path)
-    elif args.weights.lower() == "last":
-        # Find last trained weights
-        weights_path = model.find_last_weights()[1]
-    elif args.weights.lower() == "imagenet":
-        # Start from ImageNet trained weights
-        weights_path = model.get_imagenet_weights()
-    else:
-        weights_path = args.weights
-
-    # Load weights
-    print("Loading weights ", weights_path)
-    if args.weights.lower() == "coco":
-        # Exclude the last layers because they require a matching
-        # number of classes
-        model.load_weights(weights_path, by_name=True, exclude=[
-            "mrcnn_class_logits", "mrcnn_bbox_fc",
-            "mrcnn_bbox", "mrcnn_mask"])
-    else:
-        model.load_weights(weights_path, by_name=True)
-
-    # Train or evaluate
-    if args.command == "train":
-        ## TODO ADD ARGS FOR THE EPOCHS AND LAYERS
-        model.train_model()
-    elif args.command == "inference":
-        model.display_test(image_path=[args.image])
-    else:
-        print("'{}' is not recognized. "
-              "Use 'train' or 'inference'".format(args.command))
+pp.train_model("/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/dataset/mask_rcnn", 3)
