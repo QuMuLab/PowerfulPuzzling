@@ -7,38 +7,11 @@ from typing import Tuple
 import numpy as np
 from cmath import inf
 
-def determine_shape(b_angles:np.array, cutoff=0.1) -> int:
-    """
-    Determines the high level border shape based off of the ANGLES of an unrolled border.
-
-    Possible shapes are:
-            1) Concave (\\\/)\n
-            0) Linear (--)\n
-           -1) Convex (/\\\)\n
-           
-    Args:
-        b_angles (np.array): the unrolled border angles
-        cutoff (float, optional): _description_. Defaults to 0.01.
-
-    Returns:
-        int: The determined shape (1,0,-1)
-    """
-    m = np.mean(b_angles)
-    
-    if m > cutoff:
-        shape = 1
-    elif m < cutoff:
-        shape = -1
-    else:
-        shape = 0
-    
-    return shape
-
 def get_poly_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
     """
     High-level determination of the shape of an border segment using np.polyfit.
     
-    NOTE: The border must be a true unrolled border (not angles)
+    NOTE: The border must be the unrolled border
     
     Possible shapes are:
             1) Concave (\\\/)\n
@@ -47,6 +20,9 @@ def get_poly_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[flo
     
     This is determined by looking at the constant in a 2nd order polynomial fitted to the 
     points and seeing if it is - (convex), + (concave), or ~0 (linear).
+    
+    The cutoff is used to determine if the shape is linear or not. Its default is 0.01 
+    which was determined to work with a sampling rate of 50 (from the unrolling function).
 
     Args:
         border_segment (np.array): The border segment shape must be (x,) 
@@ -62,15 +38,17 @@ def get_poly_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[flo
     References:
         - np.polyFit: https://numpy.org/doc/stable/reference/generated/numpy.polyfit.html
     """
+    assert len(border_segment.shape) == 1, "Passed in border must be unrolled border!"
+    
     # poly is a 3-tuple of the coeffs a,b, and c: (a*x^2 + b*x + c)
     poly = np.polyfit(x=list(range(border_segment.shape[0])), y=border_segment, deg=2)
-            
-    if poly[0] > cutoff:
-        shape = 1
-    elif poly[0] < cutoff:
-        shape = -1
-    else:
+    
+    if abs(poly[0]) < cutoff:
         shape = 0
+    elif poly[0] <= -cutoff:
+        shape = -1
+    else: # poly[0] > cutoff
+        shape = 1
     
     return shape, poly
 
