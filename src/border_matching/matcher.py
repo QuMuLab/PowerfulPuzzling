@@ -7,28 +7,39 @@ from dtw import dtw
 import numpy as np
 import cv2 as cv
 
-from src.utils.border_ops import rotate_points, unroll_border, determine_shape
+from src.utils.border_ops import rotate_points, unroll_border, get_poly_shape
 
 class Matcher:
-    def __init__(self, original_image: np.array, piece_size=400, ksize=61) -> None:
-        """This class is in charge of 
+    def __init__(self, original_image: np.array, piece_size=400, ksize=61, kmeans=False, n_clusters=5) -> None:
+        """
+          This class is in charge of finding the best matching pieces in a puzzle.
 
         Args:
             original_image (np.array): RGB picture of the original image (used to extract 
                 color data for validating matches)
             ksize (int, optional): The kernal size for median blur on the original image. Defaults to 61.
+            kmeans (bool, optional): Whether or not to use kmeans clustering for denoising of color data. Defaults to False.
+            n_clusters (int, optional): The number of clusters to use for kmeans clustering. Defaults to 5.
         """
         self.puzzle = original_image
         # self.clustered_puzzle = original_image # REVIEW: apply clustering for high level color classification?
         
         self.piece_size = piece_size #TODO: how can we dynamically determine this?
         
-        self.blured_puzzle = cv.medianBlur(original_image, ksize=ksize)
-        self.hsv_puzzle = cv.cvtColor(self.blured_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi
-        
+        if kmeans:
+            assert n_clusters > 0, "ERROR: n_clusters must be greater than 0."
+            km_model = KMeans(n_clusters=n_clusters).fit(original_image.reshape(-1, 3))
+            centers = np.uint8(km_model.cluster_centers_)
+            km_data = centers[km_model.labels_]
+            self.denoised_puzzle = km_data.reshape((original_image.shape))
+        else: # simple blur instead
+            self.denoised_puzzle = cv.medianBlur(original_image, ksize=ksize) # blurred to reduce noise
+            
+        self.hsv_puzzle = cv.cvtColor(self.denoised_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi       
         
     def get_matching_pieces(self, contours: np.array) -> Tuple[Tuple[int,int], Tuple[float, float]]:
-        """Finds two pieces that match with each other given their borders.
+        """
+        Finds two pieces that match with each other given their borders.
 
         Args:
             contours (np.array): the contours for all the borders of each puzzle piece.
@@ -42,7 +53,7 @@ class Matcher:
         best_match = inf
         best_i = (-1,-1)
         best_rot = (-1.0, -1.0)
-        for i in  range(n):
+        for i in range(n):
             for j in range(i+1, n):
                 match_val, match_rot = self.get_matching_segments(contours[i], contours[j])
                 
@@ -51,7 +62,7 @@ class Matcher:
                     best_i = (i, j)
                     best_rot = match_rot
         
-        assert best_i != (-1,-1), "Best index cannot be negative"
+        assert best_i != (-1,-1), "ERROR: no best matching found."
         
         return best_i, best_rot
     
@@ -82,8 +93,8 @@ class Matcher:
                 seg2 = b2[p2:p2+self.piece_size]
                 
                 # high level matching by concavity
-                shape1 = determine_shape(b1_angles[p1:p1+self.piece_size])
-                shape2 = determine_shape(b2_angles[p2:p2+self.piece_size])
+                shape1 = get_poly_shape(b1_angles[p1:p1+self.piece_size])
+                shape2 = get_poly_shape(b2_angles[p2:p2+self.piece_size])
                 
                 if ((shape1 != 0 and shape2 != 0) and # making sure that neither are flat segments
                     shape1 == -shape2): # making sure that they are inverted shapes (convex matching with concave)
@@ -172,6 +183,7 @@ class Matcher:
             Tuple[float, float]: distance and normalized distance value from DTW, respectively.
         """
         assert not (distance_only and display), 'Cannot display anything if distance_only is also set.'
+        # assert seg1.shape[0] == seg2.shape[0], 'Segment shapes are not the same'
         
         # normalizing is needed for DTW to work 
         seg1_n = seg1 / np.linalg.norm(seg1)
