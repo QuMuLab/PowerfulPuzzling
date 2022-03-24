@@ -38,6 +38,21 @@ b2_s = b2[p2:p2+n]
 # Their matching score is 0.08993 (from match_shape and a sampling rate of 50)
 
 # %% Getting jigsaw nodes:
+jigsaw_nodes = []
+
+# using hough line transform to detect straight lines
+
+display_border(b1)
+plt.scatter(3706, 2030)
+plt.scatter(3696, 2033, c='r')
+
+plt.figure()
+ur_b1 = border_ops.unroll_border(b1[:,0], sampling_rate=50)
+plt.plot(ur_b1)
+plt.show()    
+exit()
+
+# %% visualize the jigsaw nodes:
 
 
 # %%
@@ -86,8 +101,7 @@ def get_argmin(dists, n):
     return d.argpartition(n)[:n]
 
 
-# Check color for shadow
-# TODO: visualize the jigsaw pieces after eliminating line segments.
+# TODO: Check color for shadow
 
 # n = 14922
 # print('dist:', dists[n])
