@@ -7,7 +7,22 @@ from typing import Tuple
 import numpy as np
 from cmath import inf
 
-def get_poly_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
+def get_jigsaw_nodes(border):
+    """
+    This function gets the jigsaw nodes from a border. And returns their index positions.
+
+    Args:
+        border (np.array): the border to extract the jigsaw nodes from.
+
+    Raises:
+        e: _description_
+
+    Returns:
+        np.array: a list of tuple of the start and end index positions for the jigsaw nodes.
+    """
+    pass
+
+def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[float]]:
     """
     High-level determination of the shape of an border segment using np.polyfit.
     

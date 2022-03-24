@@ -15,9 +15,7 @@ from dtw import dtw, rabinerJuangStepPattern
 
 # %%
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
-img_matcher = Matcher(img, kmeans=True, n_clusters=10)
-plt.imshow(img_matcher.denoised_puzzle)
-plt.show()
+img_matcher = Matcher(img, kmeans=False)
 
 # %%
 def display_border(border, **kwargs):
@@ -39,12 +37,11 @@ b1_s = b1[p1:p1+n]
 b2_s = b2[p2:p2+n]
 # Their matching score is 0.08993 (from match_shape and a sampling rate of 50)
 
-# %%
-# TODO increase sampling rate and test on fixed determine shape function!
+# %% Getting jigsaw nodes:
 
+
+# %%
 # TODO:
-#   - try color matching first:
-#       - Using various combinations of blur, kmeans, etc... (compare blurred kmeans to normal).
 #   - Shape matching might do better with 2daprox?
 
 matches = []
@@ -59,7 +56,7 @@ for p1 in range(0,b1.shape[0]-piece_size, 20): # TODO: also try border segments 
         # high level matching by concavity
         ur_seg1 = border_ops.unroll_border(seg1[:,0], sampling_rate=50)
         ur_seg2 = border_ops.unroll_border(seg2[:,0], sampling_rate=50)
-        shape1, _ = border_ops.get_poly_shape(ur_seg1)
+        shape1, _ = border_ops.get_poly_shape(ur_seg1) # increase cutoff to 0.5?
         shape2, _ = border_ops.get_poly_shape(ur_seg2)
         
         # if (shape1 == -shape2): # making sure that they are inverted shapes (convex matching with concave)
@@ -68,7 +65,8 @@ for p1 in range(0,b1.shape[0]-piece_size, 20): # TODO: also try border segments 
                 shape_dist = Matcher.match_shape_distance(ur_seg1, -ur_seg2)
                 
                 if shape_dist[1] < 0.1: # only consider matches with a low shape distance
-                    dist = img_matcher.match_color_distance(seg1[:,0], seg2[:,0])
+                    # REVIEW: Am I just sampling too much? Maybe it would be better to average along the border instead?
+                    dist = img_matcher.match_color_distance(seg1[:,0], seg2[:,0]) 
                     matches.append([seg1,seg2])
                     angles.append([ur_seg1, ur_seg2])
                     dists.append(dist)
@@ -80,13 +78,16 @@ for p1 in range(0,b1.shape[0]-piece_size, 20): # TODO: also try border segments 
                 display_border(b2)
                 display_border(seg1)
                 display_border(seg2)
-                raise e
-                
-            
+                raise e       
+
 # %%
 def get_argmin(dists, n):
     d = np.array(dists)[:,1]
     return d.argpartition(n)[:n]
+
+
+# Check color for shadow
+# TODO: visualize the jigsaw pieces after eliminating line segments.
 
 # n = 14922
 # print('dist:', dists[n])
