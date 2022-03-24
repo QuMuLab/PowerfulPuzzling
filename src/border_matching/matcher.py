@@ -145,7 +145,6 @@ class Matcher:
         
         # Displaying all three:
         if display:
-            # TODO: figure out how to title these (set_title doesn't work...)
             print('Hue')
             DTW_h.plot(type="threeway")
             DTW_h.plot(type="twoway")
