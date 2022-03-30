@@ -40,8 +40,6 @@ b2_s = b2[p2:p2+n]
 # %% Getting jigsaw nodes:
 jigsaw_nodes = []
 
-# using hough line transform to detect straight lines
-
 display_border(b1)
 plt.scatter(3706, 2030)
 plt.scatter(3696, 2033, c='r')
