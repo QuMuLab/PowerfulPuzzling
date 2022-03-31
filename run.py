@@ -5,6 +5,7 @@ from turtle import shape
 from src.app import get_hint, complete_puzzle
 from src.border_matching import Matcher
 from src.segmentation.FIXME import get_image_and_border
+from src.segmentation import segment_border
 from src.utils import border_ops
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -26,37 +27,26 @@ def display_border(border, **kwargs):
 #%% Pieces 0 and 2 can connect on one side:
 b1 = borders[0]
 b2 = borders[2]
-plt.show()
-
-# %% Getting appropriate segments:
-p1 = 1420
-p2 = 2320
-p3 = 3540
-n = 450
-b1_s = b1[p1:p1+n]
-b2_s = b2[p2:p2+n]
-# Their matching score is 0.08993 (from match_shape and a sampling rate of 50)
 
 # %% Getting jigsaw nodes:
 jigsaw_nodes = []
 
-display_border(b1)
-plt.scatter(3706, 2030)
-plt.scatter(3696, 2033, c='r')
+sampling_rate = 25
+THRESHOLD = 0.104
+ur_b1 = border_ops.unroll_border(b1[:,0], sampling_rate=sampling_rate)
+ur_b2 = border_ops.unroll_border(b2[:,0], sampling_rate=sampling_rate)
 
-plt.figure()
-ur_b1 = border_ops.unroll_border(b1[:,0], sampling_rate=50)
-plt.plot(ur_b1)
-plt.show()    
+print("border 1:")
+seg_is, seg_vals = segment_border.get_border_segments(ur_b1, b1, display_borders=True)
+print("border 2:")
+seg_is, seg_vals = segment_border.get_border_segments(ur_b2, b2, display_borders=True)
+
+# %% matching segment values from the two borders:
+
+
 exit()
 
-# %% visualize the jigsaw nodes:
-
-
-# %%
-# TODO:
-#   - Shape matching might do better with 2daprox?
-
+#%%
 matches = []
 angles = []
 dists = []

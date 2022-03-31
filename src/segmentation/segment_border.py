@@ -11,7 +11,7 @@ import numpy as np
 from scipy.signal import find_peaks_cwt
 
 def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders=False,
-                        threshold=0.1040115024073753, gamma=0.75, peak_width=2) -> np.array:
+                        threshold=0.1040115024073753, gamma=0.75, peak_width=2) -> Tuple[list, list]:
     """
     This function finds the border segments that contain the jigsaw portions. This is done 
     by iterating through the unrolled border and keeping track of the ratio of line points 
@@ -41,7 +41,8 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
                 Defaults to 2.
                 
     Returns:
-        np.array: a list of tuple of the start and end index positions for the jigsaw nodes.
+        list(tuple(int,int)): A list of tuples of the start and end index positions for the segments.
+        list(np.array): The actual unrolled border values for each segment.
     """
     # If display is set then there must be a border passed in:
     assert not(display_borders and b is None), "display_borders is set to True but no border is passed in."
