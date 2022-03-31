@@ -217,21 +217,21 @@ for peak in peaks:
         for i in range(r_i, l_i+1):
             i = i * sampling_rate % len(b1)
             p = b1[i][0]
-            plt.scatter(p[0], p[1], 70, c='k', marker='o')
+            plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
     else:
         print('WARNING: l_i < r_i', l_i, r_i)
         for i in range(l_i, -1, -1):
             i = i * sampling_rate % len(b1)
             p = b1[i][0]
-            plt.scatter(p[0], p[1], 70, c='k', marker='o')
+            plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
             
         for i in range(r_i, len(ur_b1)+1):
             i = i * sampling_rate % len(b1)
             p = b1[i][0]
-            plt.scatter(p[0], p[1], 70, c='k', marker='o')
+            plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
     
     # plt.scatter(peak_p[0], peak_p[1], 500, c='b', marker='x')
     plt.scatter(l_p[0], l_p[1], 500, c='b', marker='x')
-    plt.scatter(r_p[0], r_p[1], 500, c='r', marker='x')    
+    plt.scatter(r_p[0], r_p[1], 500, c='r', marker='+')    
         
 plt.show()
