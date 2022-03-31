@@ -6,21 +6,50 @@ This script just contains helper functions that might be useful for border opera
 from typing import Tuple
 import numpy as np
 from cmath import inf
+import matplotlib.pyplot as plt
 
-def get_jigsaw_nodes(border):
+def display_border(border, **kwargs):
+    n = border.shape[0]
+    b = border.reshape(n, 2)
+    plt.scatter(b[:,0], b[:,1], **kwargs)
+    
+def display_std_ur_border(ur_b, std_multiplier=0.25):
     """
-    This function gets the jigsaw nodes from a border. And returns their index positions.
+    This function displays the unrolled border with the following:
+        standard deviation: red
+        standard deviation * std_multiplier: yellow
+        mean: blue
+        min: green
+        max: green
 
     Args:
-        border (np.array): the border to extract the jigsaw nodes from.
-
-    Raises:
-        e: _description_
-
-    Returns:
-        np.array: a list of tuple of the start and end index positions for the jigsaw nodes.
+        ur_b (np.array): The unrolled border.
+        std_multiplier (float, optional): The threshold for the standard deviation. 
+                Defaults to 0.25.
     """
-    pass
+    plt.figure(figsize=(20,3))
+    # gettin min mean max and std:
+    mean = np.mean(ur_b)
+    std = np.std(ur_b)
+    max = np.max(ur_b)
+    min = np.min(ur_b)
+    std_multiplied = std*std_multiplier
+    
+    print("std threshold:", std_multiplied)
+    print("mean+std:", mean + std_multiplied)
+    
+    plt.plot(ur_b)
+    plt.plot((0, len(ur_b)), (mean + std, mean + std), c='r')
+    plt.plot((0, len(ur_b)), (mean - std, mean - std), c='r')
+
+    plt.plot((0, len(ur_b)), (mean + std_multiplied, mean + std_multiplied), c='y')
+    plt.plot((0, len(ur_b)), (mean - std_multiplied, mean - std_multiplied), c='y')
+
+    plt.plot((0, len(ur_b)), (mean,mean), c='b')
+
+    plt.plot((0, len(ur_b)), (max,max), c='g')
+    plt.plot((0, len(ur_b)), (min,min), c='g')
+    plt.xticks(np.arange(0, len(ur_b), 5))
 
 def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[float]]:
     """
