@@ -196,7 +196,7 @@ def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104, extra_wi
             for i in range(0, l_i):
                 segment_val.append(ur_b[i])
                 
-        segment_values.append(segment_val)
+        segment_values.append(np.array(segment_val))
     
     return segment_indices, segment_values
 
