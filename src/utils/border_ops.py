@@ -72,7 +72,7 @@ def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[fl
         border_segment (np.array): The border segment shape must be (x,) 
                 where x is the number of points making up the border.
         cutoff (float, optional): The cutoff for classification (e.g.: a cutoff of 1 
-                means linear is anything between -1 and 1 coeff). Defaults to 0.0 
+                means linear is anything between -1 and 1 coeff). Defaults to 0.006
                 (no linear aspect).
         
     Returns:
