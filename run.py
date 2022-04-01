@@ -37,9 +37,16 @@ ur_b1 = border_ops.unroll_border(b1[:,0], sampling_rate=sampling_rate)
 ur_b2 = border_ops.unroll_border(b2[:,0], sampling_rate=sampling_rate)
 
 print("border 1:")
-seg_is1, seg_vals1 = segment_border.get_border_segments(ur_b1, b1, display_borders=True) # TODO: also make return the pixel positions of the segments.
+seg_is1, seg_vals1 = segment_border.get_border_segments(ur_b1, b1, display_borders=False)
 print("border 2:")
-seg_is2, seg_vals2 = segment_border.get_border_segments(ur_b2, b2, display_borders=True)
+seg_is2, seg_vals2 = segment_border.get_border_segments(ur_b2, b2, display_borders=False)
+
+# %%
+for seg in seg_is1:
+    border_ops.display_border(b1, c='b')
+    segment_border.get_border_points(seg[0]*sampling_rate, seg[1]*sampling_rate, b1[:,0])
+    plt.show()
+exit()
 
 # %% matching segment values from the two borders:
 # getting poly shape beforehand to speed up matching:
@@ -49,9 +56,10 @@ seg_shapes2 = [border_ops.get_poly_shape(s2, cutoff=0.002) for s2 in seg_vals2]
 #%% looping through the segments and matching up possible pairs (from shapes)
 s_dist = []
 angles = []
-# c_dist = []
+c_dist = []
 for seg1_i, seg1 in enumerate(seg_vals1):
-    shape1 = seg_shapes1[seg1_i][0] 
+    shape1 = seg_shapes1[seg1_i][0]
+    
     for seg2_i, seg2 in enumerate(seg_vals2):
         shape2 = seg_shapes2[seg2_i][0]
         
@@ -63,11 +71,18 @@ for seg1_i, seg1 in enumerate(seg_vals1):
             s_dist.append(shape_dist)
             angles.append([seg1, seg2])
             
-            # TODO: get the pixel positions of the segments from the get_border_segments function (call above)
             # Then match by color if shape distance is the small enough:
-            # if shape_dist[1] < 0.1:
-            #     color_dist = img_matcher.match_color_distance(seg1, seg2)
-            #     c_dist.append(color_dist)
+            if shape_dist[1] < 0.1:
+                # Converting ur index to a real index on the original border
+                # no need to apply modulo because every ur_border index should map to a real border index:
+                b1_i = seg_is1[seg1_i] * sampling_rate
+                b2_i = seg_is2[seg2_i] * sampling_rate
+                
+                # using the real index to get the segment for matching color:
+                segment_border.get_border_points(b1_i[0], b1_i[1], sampling_rate=sampling_rate)
+                
+                color_dist = img_matcher.match_color_distance(seg1, seg2)
+                c_dist.append(color_dist)
 s_dist = np.array(s_dist)
 
 

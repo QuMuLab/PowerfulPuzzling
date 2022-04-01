@@ -41,7 +41,7 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
                 Defaults to 2.
                 
     Returns:
-        list(tuple(int,int)): A list of tuples of the start and end index positions for the segments.
+        list(np.array): A list of tuples of the start and end index positions for the segments.
         list(np.array): The actual unrolled border values for each segment.
     """
     # If display is set then there must be a border passed in:
@@ -69,7 +69,7 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
     
     return segment_indices, segment_values
  
-def get_ratios(ur_b:np.array,threshold=0.104, gamma=0.75) -> np.array:
+def get_ratios(ur_b:np.array, threshold=0.104, gamma=0.75) -> np.array:
     """
     Gets the ratios along the unrolled border. This is done by iterating through the unrolled 
     border and applying the following ratio formula:
@@ -182,7 +182,7 @@ def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104, extra_wi
         r_i = r_i % len(ur_b) if r_i >= len(ur_b) else r_i
         
         # appending to the list of segment indexes:
-        segment_indices.append((l_i, r_i))
+        segment_indices.append(np.array([l_i, r_i])) # cast as np.array for easy computation later.
         
         # Getting the actual segment values:
         segment_val = []
@@ -219,28 +219,68 @@ def display_border_points(b, ur_b, sampling_rate=25, threshold=0.104011502407375
             if ur_i % 10 == 0:
                 plt.text(p[0], p[1], str(ur_i))
 
+def get_border_points(start:int, end:int, b:np.array, display=False):
+    """
+    Gets the border points given a start and end index.
+    
+    This function is necessary because it takes into account the fact that 
+    the border is not stored as a closed loop and start and end points could 
+    overlap with the end of the array.
+
+    Args:
+        start (int): The start of the border segement.
+        end (int): The end of the border segment.
+        b (np.array): The border array to get the points from. Shape is expected to be (n,2).
+        
+        display (bool, optional): Whether to display the border points. Defaults to False.
+        
+    Returns:
+        np.array: The border points. Shape is (n,2) where each item is a [y,x] coordinate.
+    """
+    assert len(b.shape) == 2,  f"Segment shapes must be (n, 2)! Got {b.shape}."
+    
+    border_points = []
+    
+    if start >= end: # should always be true unless at the end of the array
+        for i in range(end, start+1):
+            p = b[i]
+            border_points.append(p)
+            if display: plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
+    else: # if end < start then we have to wrap around the array
+        for i in range(end, len(b)):
+            p = b[i]
+            border_points.append(p)
+            if display: plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
+            
+        for i in range(0, start):
+            p = b[i]
+            border_points.append(p)
+            if display: plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
+        
+    return np.array(border_points)
+
 def display_border_segments(b, ur_b, segment_indices, sampling_rate=25):
     for l_i, r_i in segment_indices:
-        i = r_i * sampling_rate % len(b)
+        i = r_i * sampling_rate # should already be within the bounds of a border
         r_p = b[i][0]
         
-        i = l_i * sampling_rate % len(b)
+        i = l_i * sampling_rate
         l_p = b[i][0]
         
         # Drawing the segment b/t the left and right line points:
         if l_i >= r_i: # should always be true unless at the edge of the array
             for i in range(r_i, l_i+1):
-                i = i * sampling_rate % len(b)
+                i = i * sampling_rate
                 p = b[i][0]
                 plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
         else: # if l_i < r_i then we have to wrap around the array
             for i in range(r_i, len(ur_b)):
-                i = i * sampling_rate % len(b)
+                i = i * sampling_rate
                 p = b[i][0]
                 plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
                 
             for i in range(0, l_i):
-                i = i * sampling_rate % len(b)
+                i = i * sampling_rate
                 p = b[i][0]
                 plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
         
