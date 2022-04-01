@@ -9,10 +9,13 @@ from cmath import inf
 import matplotlib.pyplot as plt
 
 def display_border(border, **kwargs):
-    n = border.shape[0]
-    b = border.reshape(n, 2)
+    if len(border.shape) != 2:
+        n = border.shape[0]
+        b = border.reshape(n, 2)
+    else:
+        b = border
     plt.scatter(b[:,0], b[:,1], **kwargs)
-    
+
 def display_std_ur_border(ur_b, std_multiplier=0.25):
     """
     This function displays the unrolled border with the following:
@@ -50,6 +53,22 @@ def display_std_ur_border(ur_b, std_multiplier=0.25):
     plt.plot((0, len(ur_b)), (max,max), c='g')
     plt.plot((0, len(ur_b)), (min,min), c='g')
     plt.xticks(np.arange(0, len(ur_b), 5))
+
+def get_mse(border_segment:np.array) -> float:
+    """
+    Calculates the mean squared error from a list of y,x points after performing a linear regression.
+
+    Args:
+        border_segment (np.array): The border segment shape (n,2)
+
+    Returns:
+        float: The MSE.
+    """
+    x = border_segment[:,0]
+    y = border_segment[:,1]
+    m, b = np.polyfit(x, y, 1)
+    y_fit = m*x + b
+    return np.mean((y - y_fit)**2)
 
 def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[float]]:
     """

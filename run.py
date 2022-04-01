@@ -37,16 +37,15 @@ ur_b1 = border_ops.unroll_border(b1[:,0], sampling_rate=sampling_rate)
 ur_b2 = border_ops.unroll_border(b2[:,0], sampling_rate=sampling_rate)
 
 print("border 1:")
-seg_is1, seg_vals1 = segment_border.get_border_segments(ur_b1, b1, display_borders=False)
+seg_is1, seg_vals1 = segment_border.get_border_segments(ur_b1, b1, display_borders=True)
 print("border 2:")
-seg_is2, seg_vals2 = segment_border.get_border_segments(ur_b2, b2, display_borders=False)
+seg_is2, seg_vals2 = segment_border.get_border_segments(ur_b2, b2, display_borders=True)
 
 # %%
-for seg in seg_is1:
-    border_ops.display_border(b1, c='b')
-    segment_border.get_border_points(seg[0]*sampling_rate, seg[1]*sampling_rate, b1[:,0])
-    plt.show()
-exit()
+# for seg in seg_is1:
+#     border_ops.display_border(b1, c='b')
+#     segment_border.get_border_points(seg[0]*sampling_rate, seg[1]*sampling_rate, b1[:,0])
+#     plt.show()
 
 # %% matching segment values from the two borders:
 # getting poly shape beforehand to speed up matching:
@@ -56,6 +55,7 @@ seg_shapes2 = [border_ops.get_poly_shape(s2, cutoff=0.002) for s2 in seg_vals2]
 #%% looping through the segments and matching up possible pairs (from shapes)
 s_dist = []
 angles = []
+segments = []
 c_dist = []
 for seg1_i, seg1 in enumerate(seg_vals1):
     shape1 = seg_shapes1[seg1_i][0]
@@ -64,12 +64,9 @@ for seg1_i, seg1 in enumerate(seg_vals1):
         shape2 = seg_shapes2[seg2_i][0]
         
         # making sure neither are zero (linear) and are inverted shapes (convex matching with concave)
-        if (shape1 != 0 and shape2 != 0) and (shape1 == -shape2):
+        if True:#(shape1 != 0 and shape2 != 0) and (shape1 == -shape2):
             # Matching by shape first:
             shape_dist = Matcher.match_shape_distance(seg1, -seg2) # negative to ensure they overlap
-            print("seg1:", seg1_i, "seg2:", seg2_i, round(shape_dist[1],3))
-            s_dist.append(shape_dist)
-            angles.append([seg1, seg2])
             
             # Then match by color if shape distance is the small enough:
             if shape_dist[1] < 0.1:
@@ -79,13 +76,25 @@ for seg1_i, seg1 in enumerate(seg_vals1):
                 b2_i = seg_is2[seg2_i] * sampling_rate
                 
                 # using the real index to get the segment for matching color:
-                segment_border.get_border_points(b1_i[0], b1_i[1], sampling_rate=sampling_rate)
+                seg_b1 = segment_border.get_border_points(b1_i[0], b1_i[1], b1[:,0])
+                seg_b2 = segment_border.get_border_points(b2_i[0], b2_i[1], b2[:,0])
                 
-                color_dist = img_matcher.match_color_distance(seg1, seg2)
+                # getting color distance:
+                color_dist = img_matcher.match_color_distance(seg_b1, seg_b2)
+                
+                print("seg1:", seg1_i, "seg2:", seg2_i, round(shape_dist[1],3), round(color_dist[1],3))
+                s_dist.append(shape_dist)
                 c_dist.append(color_dist)
+                angles.append([seg1, seg2])
+                segments.append([seg_b1, seg_b2])
+                border_ops.display_border(b1, c='b')
+                border_ops.display_border(b2, c='b')
+                
+                border_ops.display_border(seg_b1, c='g')
+                border_ops.display_border(seg_b2, c='g')
+                plt.show()
+                
 s_dist = np.array(s_dist)
-
-
 # exit()
 
 #%%
