@@ -152,7 +152,7 @@ def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104,
         list(np.array): The corresponding y,x values for the segment if the original border is
                 provided (None otherwise).
     """
-    get_border_points = b != None
+    get_border_points = b is not None
     # get_border_points implies that b must be of proper shape:
     assert not get_border_points or b.shape[-1] == 2 and len(b.shape) == 2, "Original border must be of shape (n,2). Got shape {}".format(b.shape)
     
@@ -257,7 +257,7 @@ def display_border_points(b, ur_b, sampling_rate=25, threshold=0.104011502407375
     border_ops.display_border(b)
     
     for i in range(len(b)):
-        p = b[i][0]
+        p = b[i]
         
         ur_i = i // sampling_rate
         if i % sampling_rate == 0:        
@@ -275,26 +275,26 @@ def display_border_points(b, ur_b, sampling_rate=25, threshold=0.104011502407375
 def display_border_segments(b, ur_b, segment_indices, sampling_rate=25):
     for l_i, r_i in segment_indices:
         i = r_i * sampling_rate # should already be within the bounds of a border
-        r_p = b[i][0]
+        r_p = b[i]
         
         i = l_i * sampling_rate
-        l_p = b[i][0]
+        l_p = b[i]
         
         # Drawing the segment b/t the left and right line points:
         if l_i >= r_i: # should always be true unless at the edge of the array
             for i in range(r_i, l_i+1):
                 i = i * sampling_rate
-                p = b[i][0]
+                p = b[i]
                 plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
         else: # if l_i < r_i then we have to wrap around the array
             for i in range(r_i, len(ur_b)):
                 i = i * sampling_rate
-                p = b[i][0]
+                p = b[i]
                 plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
                 
             for i in range(0, l_i):
                 i = i * sampling_rate
-                p = b[i][0]
+                p = b[i]
                 plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
         
         plt.scatter(l_p[0], l_p[1], 500, c='b', marker='x')
