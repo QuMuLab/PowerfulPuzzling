@@ -33,21 +33,42 @@ jigsaw_nodes = []
 
 sampling_rate = 25
 THRESHOLD = 0.104
+mse_cutoff = 5.0
 ur_b1 = border_ops.unroll_border(b1[:,0], sampling_rate=sampling_rate)
 ur_b2 = border_ops.unroll_border(b2[:,0], sampling_rate=sampling_rate)
 
 print("border 1:")
-seg_is1, seg_vals1, seg_points1 = segment_border.get_border_segments(ur_b1, b1, display_borders=True)
+seg_is1, seg_vals1, seg_points1 = segment_border.get_border_segments(ur_b1, b1[:,0], display_borders=True)
 print("border 2:")
-seg_is2, seg_vals2, seg_points2 = segment_border.get_border_segments(ur_b2, b2, display_borders=True)
+seg_is2, seg_vals2, seg_points2 = segment_border.get_border_segments(ur_b2, b2[:,0], display_borders=True)
 
 # %%
 # getting poly shape and mse beforehand to speed up matching by avoiding redundant computations
-seg_shapes1 = [border_ops.get_poly_shape(s1, cutoff=0.0) for s1 in seg_vals1] # cutoff is zero because MSE is better at determing linearity
-seg_shapes2 = [border_ops.get_poly_shape(s2, cutoff=0.0) for s2 in seg_vals2]
+seg_shapes1 = [border_ops.get_poly_shape(s1, cutoff=0.0)[0] for s1 in seg_vals1] # cutoff is zero because MSE is better at determing linearity
+seg_shapes2 = [border_ops.get_poly_shape(s2, cutoff=0.0)[0] for s2 in seg_vals2]
 
 seg_mse1 = [border_ops.get_mse(s1) for s1 in seg_points1]
 seg_mse2 = [border_ops.get_mse(s2) for s2 in seg_points2]
+
+# %%
+best_match_i = (-1, -1) # best match index for left and right border segments
+best_match_val = inf # the distance value
+for seg1_i, seg1 in enumerate(seg_vals1): # seg_vals is the angles
+    shape1 = seg_shapes1[seg1_i] 
+    mse1 = seg_mse1[seg1_i]
+    for seg2_i, seg2 in enumerate(seg_vals2):
+        shape2 = seg_shapes2[seg2_i]
+        mse2 = seg_mse2[seg2_i]
+        
+        # Check to make sure it is not linear and are inverted shapes (convex matching with concave)
+        if mse1 > mse_cutoff and mse2 > mse_cutoff and shape1 == -shape2:
+            # Low level shape match first:
+            _, shape_dist_norm = Matcher.match_shape_distance(seg1, -seg2) # Negative to flip the curve so they overlap
+            if shape_dist_norm < best_match_val:
+                best_match_val = shape_dist_norm
+                best_match_i = (seg1_i, seg2_i)
+
+
 
 #%% looping through the segments and matching up possible pairs (from shapes)
 s_dist = []

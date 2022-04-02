@@ -1,6 +1,7 @@
 from os import stat
 from typing import Tuple
 from cmath import inf
+from xmlrpc.client import FastMarshaller
 
 from sklearn.cluster import KMeans
 from dtw import dtw
@@ -8,7 +9,7 @@ import numpy as np
 import cv2 as cv
 from src.segmentation import segment_border
 
-from src.utils.border_ops import rotate_points, unroll_border, get_poly_shape
+from src.utils.border_ops import rotate_points, unroll_border, get_poly_shape, get_mse
 
 class Matcher:
     def __init__(self, original_image: np.array, piece_size=400, ksize=61, kmeans=False, n_clusters=5) -> None:
@@ -38,36 +39,29 @@ class Matcher:
             
         self.hsv_puzzle = cv.cvtColor(self.denoised_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi       
         
-    def get_matching_pieces(self, contours: np.array) -> Tuple[Tuple[int,int], Tuple[float, float]]:
+    def get_matching_pieces(self, contours: np.array) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
         """
-        Finds two pieces that match with each other given their borders.
+        Ranks the pieces by how well they match and return their best matching segment.
 
         Args:
             contours (np.array): the contours for all the borders of each puzzle piece.
 
         Returns:
-            Tuple[Tuple[int, int], Tuple[float, float]]: The index for the two matching 
-                borders, and what rotation (in degrees) needs to be applied for them to 
-                match.
+            list[float, Tuple[int, int], Tuple[np.array, np.array]]: a list of tuples containing the
+                distance score, the piece index, and the pixel positions for their matching segments. 
+                Sorted by score.
         """
-        n = len(contours) # number of pieces
-        best_match = inf
-        best_i = (-1,-1)
-        best_rot = (-1.0, -1.0)
+        n = len(contours) # Number of pieces
+        matches = [] # Sorted list of match_val, border indexes, and match_pixels
         for i in range(n):
-            for j in range(i+1, n):
-                match_val, match_rot = self.get_matching_segments(contours[i], contours[j])
+            for j in range(i+1, n): # +1 to prevent match with self 
+                match_val, match_pixels = self.get_matching_segments(contours[i], contours[j])
+                matches.append((match_val, (i,j), match_pixels))
                 
-                if best_match < match_val:
-                    best_match = match_val
-                    best_i = (i, j)
-                    best_rot = match_rot
-        
-        assert best_i != (-1,-1), "ERROR: no best matching found."
-        
-        return best_i, best_rot
+        matches.sort(key=lambda x: x[0]) # Sort by match_val
+        return matches
     
-    def get_matching_segments(self, b1:np.array, b2:np.array) -> Tuple[float, Tuple[float, float]]:
+    def get_matching_segments(self, b1:np.array, b2:np.array, mse_cutoff=5.0) -> Tuple[float, Tuple[np.array, np.array]]:
         """
         Gets the best matching segments from two contours. This is done by shape and then 
         validated with color.
@@ -75,35 +69,54 @@ class Matcher:
         Args:
             b1 (np.array): A border/contour.
             b2 (np.array): The border/contour to match with.
+            mse_cutoff (float, optional): The MSE cutoff that determines if a segment is a line or not. 
+                    Defaults to 5.0.
 
         Returns:
-            Tuple[float, Tuple[float, float]]: The match value and the rotation applied for that 
-            optimal match.
+            Tuple[float, Tuple[np.array, np.array]]: The match value and the pixel locations for 
+                    the matching segments.
         """
         # Unrolling the border by sampling for angles
         b1_angles = unroll_border(b1)
         b2_angles = unroll_border(b2)
         
-        # Getting the border segments where jigsaw parts are:
-        seg_i1, seg_vals1 = segment_border.get_border_segments(b1_angles, b1, display_borders=False)
-        seg_i2, seg_vals2 = segment_border.get_border_segments(b2_angles, b2, display_borders=False)
+        # Getting the locations of where the jigsaw segments are:
+        seg_is1, seg_vals1, seg_points1 = segment_border.get_border_segments(b1_angles, b1, display_borders=False)
+        seg_is2, seg_vals2, seg_points2 = segment_border.get_border_segments(b2_angles, b2, display_borders=False)
         
+        # getting poly shape and MSE beforehand to speed up matching by avoiding redundant computations
+        # Value from polyshape will be +1 or -1 value depending on if concave or convex
+        seg_shapes1 = [get_poly_shape(s1, cutoff=0.0)[0] for s1 in seg_vals1] # cutoff is zero because MSE is better at determing linearity
+        seg_shapes2 = [get_poly_shape(s2, cutoff=0.0)[0] for s2 in seg_vals2]
+
+        seg_mse1 = [get_mse(s1) for s1 in seg_points1]
+        seg_mse2 = [get_mse(s2) for s2 in seg_points2]
         
-        for p1 in range(b1.shape[0]):
-            for p2 in range(b2.shape[0]):
-                seg1 = b1[p1:p1+self.piece_size]
-                seg2 = b2[p2:p2+self.piece_size]
+        # Getting the best matching segments from the two borders:
+        #TODO: expand to include color matching
+        best_match_i = (-1, -1) # best match index for left and right border segments
+        best_match_val = inf # the distance value
+        for seg1_i, seg1 in enumerate(seg_vals1): # seg_vals is the angles
+            shape1 = seg_shapes1[seg1_i] 
+            mse1 = seg_mse1[seg1_i]
+            for seg2_i, seg2 in enumerate(seg_vals2):
+                shape2 = seg_shapes2[seg2_i]
+                mse2 = seg_mse2[seg2_i]
                 
-                # high level matching by concavity
-                shape1 = get_poly_shape(b1_angles[p1:p1+self.piece_size])
-                shape2 = get_poly_shape(b2_angles[p2:p2+self.piece_size])
-                
-                if ((shape1 != 0 and shape2 != 0) and # making sure that neither are flat segments
-                    shape1 == -shape2): # making sure that they are inverted shapes (convex matching with concave)
-                    # matching shape:
-                    # matching color
-                    pass
-                
+                # Check to make sure it is not linear and are inverted shapes (convex matching with concave)
+                if mse1 > mse_cutoff and mse2 > mse_cutoff and shape1 == -shape2:
+                    # Low level shape match first:
+                    _, shape_dist_norm = self.match_shape_distance(seg1, -seg2) # Negative to flip the curve so they overlap
+                    if shape_dist_norm < best_match_val:
+                        best_match_val = shape_dist_norm
+                        best_match_i = (seg1_i, seg2_i)
+                        
+        assert best_match_i != (-1, -1), "ERROR: no best matching found."
+        
+        # Returning the pixel position of each segment so that it can be highlighted in the image
+        best_match_points = (seg_points1[best_match_i[0]], seg_points2[best_match_i[1]])
+        
+        return best_match_val, best_match_points
 
     def match_color_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
                          distance_only=True, display=False, y_first=True) -> Tuple[float, float]: # TODO: complete this function
@@ -200,14 +213,3 @@ class Matcher:
             aligned.plot(type="twoway")
         return aligned.distance, aligned.normalizedDistance
         
-    def determine_colors(self, border_segment:np.array) -> np.array:  # REVIEW: is this necessary?
-        """
-        High level identification of the colors in the border segment.
-
-        Args:
-            border_segment (np.array): [description]
-
-        Returns:
-            np.array: [description]
-        """
-        pass
