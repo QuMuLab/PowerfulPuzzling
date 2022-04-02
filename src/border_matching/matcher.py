@@ -6,6 +6,7 @@ from sklearn.cluster import KMeans
 from dtw import dtw
 import numpy as np
 import cv2 as cv
+from src.segmentation import segment_border
 
 from src.utils.border_ops import rotate_points, unroll_border, get_poly_shape
 
@@ -79,14 +80,15 @@ class Matcher:
             Tuple[float, Tuple[float, float]]: The match value and the rotation applied for that 
             optimal match.
         """
-        # TODO: iterate through each border by "unrolling"
-        # Checking high level features
-        #   concave vs convex vs linear
-        #   General matching clusters of colors
-        # if passed check lower level features (more computational expensive)
         # Unrolling the border by sampling for angles
         b1_angles = unroll_border(b1)
         b2_angles = unroll_border(b2)
+        
+        # Getting the border segments where jigsaw parts are:
+        seg_i1, seg_vals1 = segment_border.get_border_segments(b1_angles, b1, display_borders=False)
+        seg_i2, seg_vals2 = segment_border.get_border_segments(b2_angles, b2, display_borders=False)
+        
+        
         for p1 in range(b1.shape[0]):
             for p2 in range(b2.shape[0]):
                 seg1 = b1[p1:p1+self.piece_size]

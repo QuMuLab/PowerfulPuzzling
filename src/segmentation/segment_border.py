@@ -219,9 +219,11 @@ def display_border_points(b, ur_b, sampling_rate=25, threshold=0.104011502407375
             if ur_i % 10 == 0:
                 plt.text(p[0], p[1], str(ur_i))
 
-def get_border_points(start:int, end:int, b:np.array, display=False):
+def get_border_vals(start:int, end:int, b:np.array, display=False):
     """
-    Gets the border points given a start and end index.
+    Gets the border segment corresponding to the start and end params passed in.
+    This can be the points of the original border or the values from the 
+    unrolled border.
     
     This function is necessary because it takes into account the fact that 
     the border is not stored as a closed loop and start and end points could 
@@ -230,34 +232,28 @@ def get_border_points(start:int, end:int, b:np.array, display=False):
     Args:
         start (int): The start of the border segement.
         end (int): The end of the border segment.
-        b (np.array): The border array to get the points from. Shape is expected to be (n,2).
+        b (np.array): The border array to get the points from (unrolled or shape of 
+                (n,2) for the original)
         
         display (bool, optional): Whether to display the border points. Defaults to False.
         
     Returns:
-        np.array: The border points. Shape is (n,2) where each item is a [y,x] coordinate.
+        np.array: The border values.
     """
-    assert len(b.shape) == 2,  f"Segment shapes must be (n, 2)! Got {b.shape}."
-    
-    border_points = []
-    
-    if start >= end: # should always be true unless at the end of the array
-        for i in range(end, start+1):
-            p = b[i]
-            border_points.append(p)
-            if display: plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
-    else: # if end < start then we have to wrap around the array
-        for i in range(end, len(b)):
-            p = b[i]
-            border_points.append(p)
-            if display: plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
-            
-        for i in range(0, start):
-            p = b[i]
-            border_points.append(p)
-            if display: plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
+    border_points = len(b.shape) == 2 and b.shape[-1] == 2 # border points are stored as (n,2)
+    assert len(b.shape) == 1 or border_points,  f"Segment shapes for border points must be (n, 2)! Got {b.shape}."
+    if not border_points and display: 
+        print("Warning: display is true but border points were not passed in! Nothing will be displayed.")
         
-    return np.array(border_points)
+    if start >= end: # should always be true unless at the end of the array
+        border_vals = b[end:start]
+    else: # if end < start then we have to wrap around the array
+        border_vals = np.concatenate((b[end:len(b)], b[0:start]))
+        
+    if display and border_points:
+        plt.scatter(border_vals[:,0], border_vals[:,1], 70, c='g', marker='o', alpha=0.7)
+        
+    return border_vals
 
 def display_border_segments(b, ur_b, segment_indices, sampling_rate=25):
     for l_i, r_i in segment_indices:

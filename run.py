@@ -42,18 +42,20 @@ print("border 2:")
 seg_is2, seg_vals2 = segment_border.get_border_segments(ur_b2, b2, display_borders=True)
 
 # %%
-# for seg in seg_is1:
-#     border_ops.display_border(b1, c='b')
-#     segment_border.get_border_points(seg[0]*sampling_rate, seg[1]*sampling_rate, b1[:,0])
-#     plt.show()
-
+for seg in seg_is2:
+    print(seg)
+    border_ops.display_border(b2, c='b')
+    vals = segment_border.get_border_vals(seg[0]*sampling_rate, seg[1]*sampling_rate, b2[:,0], display=True)
+    # print(vals)
+    plt.show()
+# exit()
 # %% matching segment values from the two borders:
 # getting poly shape beforehand to speed up matching:
 seg_shapes1 = [border_ops.get_poly_shape(s1, cutoff=0.0) for s1 in seg_vals1] # cutoff is zero because we will use mse to determine linearity
 seg_shapes2 = [border_ops.get_poly_shape(s2, cutoff=0.0) for s2 in seg_vals2]
 
-seg_mse1 = [border_ops.get_mse(segment_border.get_border_points(s1[0]*sampling_rate, s1[1]*sampling_rate, b1[:,0])) for s1 in seg_is1]
-seg_mse2 = [border_ops.get_mse(segment_border.get_border_points(s2[0]*sampling_rate, s2[1]*sampling_rate, b2[:,0])) for s2 in seg_is2]
+# seg_mse1 = [border_ops.get_mse(segment_border.get_border_points(s1[0]*sampling_rate, s1[1]*sampling_rate, b1[:,0])) for s1 in seg_is1]
+# seg_mse2 = [border_ops.get_mse(segment_border.get_border_points(s2[0]*sampling_rate, s2[1]*sampling_rate, b2[:,0])) for s2 in seg_is2]
 
 #%% looping through the segments and matching up possible pairs (from shapes)
 s_dist = []
