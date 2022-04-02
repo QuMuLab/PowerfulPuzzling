@@ -106,7 +106,7 @@ def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[fl
     # poly is a 3-tuple of the coeffs a,b, and c: (a*x^2 + b*x + c)
     poly = np.polyfit(x=list(range(border_segment.shape[0])), y=border_segment, deg=2)
     
-    if abs(poly[0]) < cutoff:
+    if abs(poly[0]) < cutoff: # abs value so that we only have to check once
         shape = 0
     elif poly[0] <= -cutoff:
         shape = -1
