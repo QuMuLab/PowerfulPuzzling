@@ -49,8 +49,11 @@ seg_is2, seg_vals2 = segment_border.get_border_segments(ur_b2, b2, display_borde
 
 # %% matching segment values from the two borders:
 # getting poly shape beforehand to speed up matching:
-seg_shapes1 = [border_ops.get_poly_shape(s1, cutoff=0.002) for s1 in seg_vals1]
-seg_shapes2 = [border_ops.get_poly_shape(s2, cutoff=0.002) for s2 in seg_vals2]
+seg_shapes1 = [border_ops.get_poly_shape(s1, cutoff=0.0) for s1 in seg_vals1] # cutoff is zero because we will use mse to determine linearity
+seg_shapes2 = [border_ops.get_poly_shape(s2, cutoff=0.0) for s2 in seg_vals2]
+
+seg_mse1 = [border_ops.get_mse(segment_border.get_border_points(s1[0]*sampling_rate, s1[1]*sampling_rate, b1[:,0])) for s1 in seg_is1]
+seg_mse2 = [border_ops.get_mse(segment_border.get_border_points(s2[0]*sampling_rate, s2[1]*sampling_rate, b2[:,0])) for s2 in seg_is2]
 
 #%% looping through the segments and matching up possible pairs (from shapes)
 s_dist = []
@@ -59,12 +62,14 @@ segments = []
 c_dist = []
 for seg1_i, seg1 in enumerate(seg_vals1):
     shape1 = seg_shapes1[seg1_i][0]
+    mse1 = seg_mse1[seg1_i]
     
     for seg2_i, seg2 in enumerate(seg_vals2):
         shape2 = seg_shapes2[seg2_i][0]
+        mse2 = seg_mse2[seg2_i]
         
-        # making sure neither are zero (linear) and are inverted shapes (convex matching with concave)
-        if True:#(shape1 != 0 and shape2 != 0) and (shape1 == -shape2):
+        # check to make sure it is not linear and  are inverted shapes (convex matching with concave)
+        if mse1 > 5 and mse2 > 5 and shape1 == -shape2 : # line segments will have mse's close to 0
             # Matching by shape first:
             shape_dist = Matcher.match_shape_distance(seg1, -seg2) # negative to ensure they overlap
             
@@ -97,42 +102,20 @@ for seg1_i, seg1 in enumerate(seg_vals1):
 s_dist = np.array(s_dist)
 # exit()
 
-#%%
-matches = []
-angles = []
-dists = []
-piece_size = 450
-for p1 in range(0,b1.shape[0]-piece_size, 20): # TODO: also try border segments on the cut line
-    for p2 in range(0,b2.shape[0]-piece_size, 20):
-        seg1 = b1[p1:p1+piece_size]
-        seg2 = b2[p2:p2+piece_size]
-        
-        # high level matching by concavity
-        ur_seg1 = border_ops.unroll_border(seg1[:,0], sampling_rate=50)
-        ur_seg2 = border_ops.unroll_border(seg2[:,0], sampling_rate=50)
-        shape1, _ = border_ops.get_poly_shape(ur_seg1) # increase cutoff to 0.5?
-        shape2, _ = border_ops.get_poly_shape(ur_seg2)
-        
-        # if (shape1 == -shape2): # making sure that they are inverted shapes (convex matching with concave)
-        if shape1 != 0 and shape2 != 0: # making sure they are not just straight lines
-            try:
-                shape_dist = Matcher.match_shape_distance(ur_seg1, -ur_seg2)
-                
-                if shape_dist[1] < 0.1: # only consider matches with a low shape distance
-                    # REVIEW: Am I just sampling too much? Maybe it would be better to average along the border instead?
-                    dist = img_matcher.match_color_distance(seg1[:,0], seg2[:,0]) 
-                    matches.append([seg1,seg2])
-                    angles.append([ur_seg1, ur_seg2])
-                    dists.append(dist)
-                
-            except Exception as e:
-                print(ur_seg1.shape)
-                print(ur_seg2.shape)
-                display_border(b1)
-                display_border(b2)
-                display_border(seg1)
-                display_border(seg2)
-                raise e       
+# %% Display mse and polyshape with its corresponding segment
+seg_is   =   seg_is1
+seg_vals = seg_vals1
+b        =        b1
+
+for i, s in enumerate(seg_is):
+    sb = segment_border.get_border_points(s[0]*sampling_rate, s[1]*sampling_rate, b[:,0])
+    mse = border_ops.get_mse(sb)
+    
+    print(border_ops.get_poly_shape(seg_vals[i], cutoff=0))
+    display_border(b)
+    display_border(sb)
+    plt.title("mse = "+str(mse))
+    plt.show() 
 
 # %%
 def get_argmin(dists, n):
