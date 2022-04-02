@@ -66,9 +66,21 @@ def get_mse(border_segment:np.array) -> float:
     """
     x = border_segment[:,0]
     y = border_segment[:,1]
+    
+    # Trying both axes to get the smallest MSE:
+    # This solves the issue with vertical lines causing much higher MSEs
+    
+    # x axis as the horizontal axis:
     m, b = np.polyfit(x, y, 1)
     y_fit = m*x + b
-    return np.mean((y - y_fit)**2)
+    mse_x = np.mean((y - y_fit)**2)
+    
+    # y axis as the horizontal axis:
+    m, b = np.polyfit(y, x, 1)
+    x_fit = m*y + b
+    mse_y = np.mean((x - x_fit)**2)
+    
+    return min(mse_x, mse_y)
 
 def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[float]]:
     """

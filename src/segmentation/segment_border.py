@@ -11,7 +11,8 @@ import numpy as np
 from scipy.signal import find_peaks_cwt
 
 def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders=False,
-                        threshold=0.1040115024073753, gamma=0.75, peak_width=2) -> Tuple[list, list]:
+                        threshold=0.1040115024073753, gamma=0.75, peak_width=2, 
+                        segment_padding=2) -> Tuple[list, list]:
     """
     This function finds the border segments that contain the jigsaw portions. This is done 
     by iterating through the unrolled border and keeping track of the ratio of line points 
@@ -39,10 +40,14 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
                 
         peak_width (int, optional): The width of the peaks to identify for the ratio plot. 
                 Defaults to 2.
+        segment_padding (int, optional): The padding to use for the segments. Defaults to 2.
                 
     Returns:
-        list(np.array): A list of tuples of the start and end index positions for the segments.
-        list(np.array): The actual unrolled border values for each segment.
+        list(np.array): A list of tuples of the start and end index positions for the segments 
+                on the unrolled border plane (multiply by the sampling rate to convert to original 
+                border index).
+        list(np.array): The unrolled border values for each segment.
+        list(np.array): The corresponding y,x values for each segment (from the original image).
     """
     # If display is set then there must be a border passed in:
     assert not(display_borders and b is None), "display_borders is set to True but no border is passed in."
@@ -52,7 +57,9 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
     # Finding peaks of the ratios plot using the scipy find_peaks_cwt function
     peaks = find_peaks_cwt(ratios, widths=np.ones(len(ratios))*peak_width)
     
-    segment_indices, segment_values = get_segment_indices(ur_b, peaks, threshold=threshold, extra_width=2)
+    segment_indices, segment_vals, segment_points_b = get_segment_indices(ur_b, peaks, threshold=threshold, 
+                                                                          extra_width=segment_padding, b=b, 
+                                                                          sampling_rate=sampling_rate)
         
     if display_borders:
         # Displaying the border with the segments:
@@ -67,7 +74,7 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
         plt.xticks(np.arange(0, len(ur_b), 5))
         plt.show()
     
-    return segment_indices, segment_values
+    return segment_indices, segment_vals, segment_points_b
  
 def get_ratios(ur_b:np.array, threshold=0.104, gamma=0.75) -> np.array:
     """
@@ -120,9 +127,12 @@ def get_ratios(ur_b:np.array, threshold=0.104, gamma=0.75) -> np.array:
     
     return np.array(ratios)
 
-def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104, extra_width=2) -> Tuple[list, list]:
+def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104, 
+                        extra_width=2, b=None, sampling_rate=25) -> Tuple[list, list, list]:
     """
     Gets the start and end of the segments along the unrolled border given the peaks.
+    Will also get the corresponding y,x values for the segment if the original border is
+    provided (with appropriate sampling rate).
 
     Args:
         ur_b (np.array): The unrolled border.
@@ -133,16 +143,26 @@ def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104, extra_wi
         extra_width (int, optional): Extra padding for the segment to make it larger. 
                 Defaults to 2.
                 
+        b (np.array, optional): The true border as a list of x,y points. Defaults to None.
+        sampling_rate (int, optional): The sampling rate of the unrolled border. Defaults to 25.
+                
     Returns:
         list(tuple(int,int)): A list of tuples of the start and end index positions for the segments.
         list(np.array): The actual unrolled border values for each segment.
+        list(np.array): The corresponding y,x values for the segment if the original border is
+                provided (None otherwise).
     """
+    get_border_points = b != None
+    # get_border_points implies that b must be of proper shape:
+    assert not get_border_points or b.shape[-1] == 2 and len(b.shape) == 2, "Original border must be of shape (n,2). Got shape {}".format(b.shape)
+    
     # Getting the corresponding left and right indexes for the peaks:
     # these left and right indexes are the indexes of the left and right of the jigsaw and 
     # are found by finding the nearest line point to the left and right of the jigsaw node with some extra width 
     # to minimize effect of noise.
     segment_indices = []
-    segment_values = []
+    segment_vals = [] # the unrolled border values for each segment
+    segment_points_b = [] # the actual border values for each segment
     for peak in peaks:
         # if larger than the unrolled border length then we use modulo to get the correct index:
         peak = peak % len(ur_b) if peak >= len(ur_b) else peak
@@ -185,39 +205,17 @@ def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104, extra_wi
         segment_indices.append(np.array([l_i, r_i])) # cast as np.array for easy computation later.
         
         # Getting the actual segment values:
-        segment_val = []
-        if l_i >= r_i: # should always be true unless at the edge of the array
-            for i in range(r_i, l_i+1):
-                segment_val.append(ur_b[i])
-        else: # if l_i < r_i then we have to wrap around the array
-            for i in range(r_i, len(ur_b)):
-                segment_val.append(ur_b[i])
-                
-            for i in range(0, l_i):
-                segment_val.append(ur_b[i])
-                
-        segment_values.append(np.array(segment_val))
-    
-    return segment_indices, segment_values
-
-def display_border_points(b, ur_b, sampling_rate=25, threshold=0.1040115024073753):
-    border_ops.display_border(b)
-    
-    for i in range(len(b)):
-        p = b[i][0]
+        segment_val_ur = get_border_vals(l_i, r_i, ur_b, display=False) # unrolled border values
+        segment_vals.append(segment_val_ur)
         
-        ur_i = i // sampling_rate
-        if i % sampling_rate == 0:        
-            ur_p = ur_b[ur_i-1]
-            if ur_p > threshold:
-                plt.scatter(p[0], p[1], c='y')
-            elif ur_p < -threshold:
-                plt.scatter(p[0], p[1], c='y')
-            else:
-                plt.scatter(p[0], p[1], c='r')  
-            
-            if ur_i % 10 == 0:
-                plt.text(p[0], p[1], str(ur_i))
+        if get_border_points:# actual border values (yx coordinates)
+            segment_p_b = get_border_vals(l_i*sampling_rate, r_i*sampling_rate, b, display=False) 
+            segment_points_b.append(segment_p_b)
+    
+    if segment_points_b: # checking to make sure not empty
+        return segment_indices, segment_vals, segment_points_b
+    else:
+        return segment_indices, segment_vals, None
 
 def get_border_vals(start:int, end:int, b:np.array, display=False):
     """
@@ -254,6 +252,25 @@ def get_border_vals(start:int, end:int, b:np.array, display=False):
         plt.scatter(border_vals[:,0], border_vals[:,1], 70, c='g', marker='o', alpha=0.7)
         
     return border_vals
+
+def display_border_points(b, ur_b, sampling_rate=25, threshold=0.1040115024073753):
+    border_ops.display_border(b)
+    
+    for i in range(len(b)):
+        p = b[i][0]
+        
+        ur_i = i // sampling_rate
+        if i % sampling_rate == 0:        
+            ur_p = ur_b[ur_i-1]
+            if ur_p > threshold:
+                plt.scatter(p[0], p[1], c='y')
+            elif ur_p < -threshold:
+                plt.scatter(p[0], p[1], c='y')
+            else:
+                plt.scatter(p[0], p[1], c='r')  
+            
+            if ur_i % 10 == 0:
+                plt.text(p[0], p[1], str(ur_i))
 
 def display_border_segments(b, ur_b, segment_indices, sampling_rate=25):
     for l_i, r_i in segment_indices:
