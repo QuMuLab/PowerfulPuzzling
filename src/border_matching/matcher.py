@@ -42,7 +42,7 @@ class Matcher:
             
         self.hsv_puzzle = cv.cvtColor(self.denoised_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi       
         
-    def get_matching_pieces(self, display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
+    def get_matches(self, display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
         """
         Gets the best matching segments b/t each border and returns a sorted list of tuples containing 
         the match score, the piece index, and the piece's contour (coordinate values).
@@ -60,6 +60,9 @@ class Matcher:
         matches = [] # Sorted list of match_val, border indexes, and match_pixels
         for i in range(n):
             for j in range(i+1, n): # +1 to prevent match with self 
+                
+                # TODO: keep track of the best match score for each piece and dont allow it to be the top match for future pairs if it has a worse score
+                
                 match_val, match_pixels = self.get_matching_segments(contours[i], contours[j])
                 if display:
                     # displaying the border contours
