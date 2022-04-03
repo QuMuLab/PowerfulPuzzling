@@ -13,18 +13,23 @@ from src.segmentation import segment_border
 from src.utils import border_ops
 
 class Matcher:
-    def __init__(self, original_image: np.array, ksize=61, kmeans=False, n_clusters=5) -> None:
+    def __init__(self, original_image: np.array, borders:list[np.array], ksize=61, kmeans=False, n_clusters=5) -> None:
         """
           This class is in charge of finding the best matching pieces in a puzzle.
 
         Args:
             original_image (np.array): RGB picture of the original image (used to extract 
                 color data for validating matches)
+            borders (list[np.array]): list of border contours for each piece in the puzzle.
+            
             ksize (int, optional): The kernal size for median blur on the original image. Defaults to 61.
             kmeans (bool, optional): Whether or not to use kmeans clustering for denoising of color data. Defaults to False.
             n_clusters (int, optional): The number of clusters to use for kmeans clustering. Defaults to 5.
         """
         self.puzzle = original_image
+        
+        # converting borders to shape of (n,2)
+        self.border_contours = [border.reshape(-1,2) for border in borders]
                 
         if kmeans:
             assert n_clusters > 0, "ERROR: n_clusters must be greater than 0."
@@ -37,13 +42,12 @@ class Matcher:
             
         self.hsv_puzzle = cv.cvtColor(self.denoised_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi       
         
-    def get_matching_pieces(self, contours: np.array, display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
+    def get_matching_pieces(self, display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
         """
         Gets the best matching segments b/t each border and returns a sorted list of tuples containing 
         the match score, the piece index, and the piece's contour (coordinate values).
         
         Args:
-            contours (np.array): the contours for all the borders of each puzzle piece.
             display (bool, optional): whether or not to display the matched contours. Defaults to False.
 
         Returns:
@@ -51,6 +55,7 @@ class Matcher:
                 distance score, the piece index, and the pixel positions for their matching segments. 
                 Sorted by score.
         """
+        contours = self.border_contours
         n = len(contours) # Number of pieces
         matches = [] # Sorted list of match_val, border indexes, and match_pixels
         for i in range(n):
