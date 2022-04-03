@@ -2,6 +2,7 @@ from os import stat
 from typing import Tuple
 from cmath import inf
 from xmlrpc.client import FastMarshaller
+from matplotlib import pyplot as plt
 
 from sklearn.cluster import KMeans
 from dtw import dtw
@@ -9,10 +10,10 @@ import numpy as np
 import cv2 as cv
 from src.segmentation import segment_border
 
-from src.utils.border_ops import rotate_points, unroll_border, get_poly_shape, get_mse
+from src.utils import border_ops
 
 class Matcher:
-    def __init__(self, original_image: np.array, piece_size=400, ksize=61, kmeans=False, n_clusters=5) -> None:
+    def __init__(self, original_image: np.array, ksize=61, kmeans=False, n_clusters=5) -> None:
         """
           This class is in charge of finding the best matching pieces in a puzzle.
 
@@ -24,10 +25,7 @@ class Matcher:
             n_clusters (int, optional): The number of clusters to use for kmeans clustering. Defaults to 5.
         """
         self.puzzle = original_image
-        # self.clustered_puzzle = original_image # REVIEW: apply clustering for high level color classification?
-        
-        self.piece_size = piece_size #TODO: how can we dynamically determine this?
-        
+                
         if kmeans:
             assert n_clusters > 0, "ERROR: n_clusters must be greater than 0."
             km_model = KMeans(n_clusters=n_clusters).fit(original_image.reshape(-1, 3))
@@ -39,12 +37,14 @@ class Matcher:
             
         self.hsv_puzzle = cv.cvtColor(self.denoised_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi       
         
-    def get_matching_pieces(self, contours: np.array) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
+    def get_matching_pieces(self, contours: np.array, display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
         """
-        Ranks the pieces by how well they match and return their best matching segment.
-
+        Gets the best matching segments b/t each border and returns a sorted list of tuples containing 
+        the match score, the piece index, and the piece's contour (coordinate values).
+        
         Args:
             contours (np.array): the contours for all the borders of each puzzle piece.
+            display (bool, optional): whether or not to display the matched contours. Defaults to False.
 
         Returns:
             list[float, Tuple[int, int], Tuple[np.array, np.array]]: a list of tuples containing the
@@ -56,6 +56,17 @@ class Matcher:
         for i in range(n):
             for j in range(i+1, n): # +1 to prevent match with self 
                 match_val, match_pixels = self.get_matching_segments(contours[i], contours[j])
+                if display:
+                    # displaying the border contours
+                    border_ops.display_border(contours[i], c='b')
+                    border_ops.display_border(contours[j], c='b')
+                    
+                    # displaying the segment of the border contours:
+                    border_ops.display_border(match_pixels[0], c='y')
+                    border_ops.display_border(match_pixels[1], c='y')
+                    plt.title("Score: "+str(match_val))
+                    plt.show()
+                
                 matches.append((match_val, (i,j), match_pixels))
                 
         matches.sort(key=lambda x: x[0]) # Sort by match_val
@@ -67,18 +78,19 @@ class Matcher:
         validated with color.
 
         Args:
-            b1 (np.array): A border/contour.
-            b2 (np.array): The border/contour to match with.
+            b1 (np.array): A border/contour in the form of (n,2) where each element is the yx coors for the pixels 
+                    on the border.
+            b2 (np.array): The border/contour to match with in the same format as b1.
             mse_cutoff (float, optional): The MSE cutoff that determines if a segment is a line or not. 
                     Defaults to 5.0.
 
         Returns:
-            Tuple[float, Tuple[np.array, np.array]]: The match value and the pixel locations for 
+            Tuple[float, Tuple[np.array, np.array]]: The best match value and the pixel locations for 
                     the matching segments.
         """
         # Unrolling the border by sampling for angles
-        b1_angles = unroll_border(b1)
-        b2_angles = unroll_border(b2)
+        b1_angles = border_ops.unroll_border(b1)
+        b2_angles = border_ops.unroll_border(b2)
         
         # Getting the locations of where the jigsaw segments are:
         seg_is1, seg_vals1, seg_points1 = segment_border.get_border_segments(b1_angles, b1, display_borders=False)
@@ -86,11 +98,11 @@ class Matcher:
         
         # getting poly shape and MSE beforehand to speed up matching by avoiding redundant computations
         # Value from polyshape will be +1 or -1 value depending on if concave or convex
-        seg_shapes1 = [get_poly_shape(s1, cutoff=0.0)[0] for s1 in seg_vals1] # cutoff is zero because MSE is better at determing linearity
-        seg_shapes2 = [get_poly_shape(s2, cutoff=0.0)[0] for s2 in seg_vals2]
+        seg_shapes1 = [border_ops.get_poly_shape(s1, cutoff=0.0)[0] for s1 in seg_vals1] # cutoff is zero because MSE is better at determing linearity
+        seg_shapes2 = [border_ops.get_poly_shape(s2, cutoff=0.0)[0] for s2 in seg_vals2]
 
-        seg_mse1 = [get_mse(s1) for s1 in seg_points1]
-        seg_mse2 = [get_mse(s2) for s2 in seg_points2]
+        seg_mse1 = [border_ops.get_mse(s1) for s1 in seg_points1]
+        seg_mse2 = [border_ops.get_mse(s2) for s2 in seg_points2]
         
         # Getting the best matching segments from the two borders:
         #TODO: expand to include color matching
@@ -189,9 +201,11 @@ class Matcher:
         Args:
             seg1 (np.array): The unrolled border segment (n,).
             seg2 (np.array): The unrolled border segment to match with.
+            
             step_pattern (str, optional): The step pattern to use when applying DTW 
                 (see dtw-python docs for more info). Defaults to "symmetric2".
-            distance_only (bool)
+            distance_only (bool, optional): Only calculate the distance (no backtracking). Defaults to True.
+            display (bool, optional): Display threeway and twoway plots. Defaults to False.
 
         Returns:
             Tuple[float, float]: distance and normalized distance value from DTW, respectively.

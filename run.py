@@ -28,6 +28,9 @@ def display_border(border, **kwargs):
 b1 = borders[0]
 b2 = borders[2]
 
+#%% running the matcher:
+match_val, match_segs = img_matcher.get_matching_segments(b1[:,0], b2[:,0], mse_cutoff=5.0)
+
 # %% Getting jigsaw nodes:
 jigsaw_nodes = []
 
