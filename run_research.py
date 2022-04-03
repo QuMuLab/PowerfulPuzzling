@@ -10,9 +10,13 @@ img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
 img_matcher = Matcher(img, borders, kmeans=False)
 
 #%%
-# getting_orthoganol_colors(img, borders[0][:,0], dist=10)
-border_ops.get_orthoganol_colors(img, borders[0][:,0], dist=10)
-
+# colors, points = getting_orthoganol_colors(img, borders[0][:,0], dist=10)
+colors, points = border_ops.get_orthoganol_colors(img, borders[0][:,0], dist=10)
+# displaying the sampled colors 
+plt.imshow(img)
+for x,y,c in zip(points[:,0], points[:,1], colors):
+    plt.scatter(x, y, c=[c/255], edgecolors= "r")
+plt.show()
 exit()
 
 
