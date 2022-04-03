@@ -13,7 +13,7 @@ from src.segmentation import segment_border
 from src.utils import border_ops
 
 class Matcher:
-    def __init__(self, original_image: np.array, borders:list[np.array], ksize=61, kmeans=False, n_clusters=5) -> None:
+    def __init__(self, original_image: np.array, borders:list[np.array], ksize=31, kmeans=False, n_clusters=5) -> None:
         """
           This class is in charge of finding the best matching pieces in a puzzle.
 
@@ -42,12 +42,14 @@ class Matcher:
             
         self.hsv_puzzle = cv.cvtColor(self.denoised_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi       
         
-    def get_matches(self, display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
+    def get_matches(self, by_shape=True, by_color=False, display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
         """
         Gets the best matching segments b/t each border and returns a sorted list of tuples containing 
         the match score, the piece index, and the piece's contour (coordinate values).
         
         Args:
+            by_shape (bool, optional): Whether or not to use shape matching. Defaults to True.
+            by_color (bool, optional): Whether or not to use color matching. Defaults to False.
             display (bool, optional): whether or not to display the matched contours. Defaults to False.
 
         Returns:
@@ -63,7 +65,7 @@ class Matcher:
                 
                 # TODO: keep track of the best match score for each piece and dont allow it to be the top match for future pairs if it has a worse score
                 
-                match_val, match_pixels = self.get_matching_segments(contours[i], contours[j])
+                match_val, match_pixels = self.get_matching_segments(contours[i], contours[j], by_shape=True, by_color=False,)
                 if display:
                     # displaying the border contours
                     border_ops.display_border(contours[i], c='b')
@@ -80,7 +82,7 @@ class Matcher:
         matches.sort(key=lambda x: x[0]) # Sort by match_val
         return matches
     
-    def get_matching_segments(self, b1:np.array, b2:np.array, mse_cutoff=5.0) -> Tuple[float, Tuple[np.array, np.array]]:
+    def get_matching_segments(self, b1:np.array, b2:np.array, mse_cutoff=5.0, by_shape=True, by_color=False,) -> Tuple[float, Tuple[np.array, np.array]]:
         """
         Gets the best matching segments from two contours. This is done by shape and then 
         validated with color.
@@ -89,8 +91,11 @@ class Matcher:
             b1 (np.array): A border/contour in the form of (n,2) where each element is the yx coors for the pixels 
                     on the border.
             b2 (np.array): The border/contour to match with in the same format as b1.
+            
             mse_cutoff (float, optional): The MSE cutoff that determines if a segment is a line or not. 
                     Defaults to 5.0.
+            by_shape (bool, optional): Whether or not to use shape matching. Defaults to True.
+            by_color (bool, optional): Whether or not to use color matching. Defaults to False.
 
         Returns:
             Tuple[float, Tuple[np.array, np.array]]: The best match value and the pixel locations for 
@@ -168,8 +173,7 @@ class Matcher:
         hsv1 = self.hsv_puzzle[seg1[:, int(y_first)], seg1[:, int(not y_first)]]
         hsv2 = self.hsv_puzzle[seg2[:, int(y_first)], seg2[:, int(not y_first)]]
         
-        # Running DTW on each individual color format (H, S, and V)
-        # NOTE: unlike shape DTW we don't need to normalize because they will all be along the same scale.
+        # Running DTW on each individual color format (H, S, and V)        
         DTW_h = dtw(hsv1[:,0], hsv2[:,0], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
         DTW_s = dtw(hsv1[:,1], hsv2[:,1], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
         DTW_v = dtw(hsv1[:,2], hsv2[:,2], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)

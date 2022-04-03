@@ -82,6 +82,44 @@ def get_mse(border_segment:np.array) -> float:
     
     return min(mse_x, mse_y)
 
+def get_orthoganol_colors(img, border, dist=10, sampling_rate=5) -> Tuple[np.array, np.array]:
+    """Gets the colors (in HSV format) orthogonal to the contour segment.
+    
+    Using this formula we can get colors within the border that are x distance way from it.
+    https://www.desmos.com/calculator/fpr5vp82vd
+
+    Args:
+        img ([type]): The image to sample colors from in yx format     
+        b2_s ([type]): the contour segment for the piece
+        dist ([type], optional): How many pixels away from the border to sample from. 
+                Defaults to 5.
+        
+    Returns:
+        Tuple[np.array, np.array]: The sampled colors and their coordinates in xy format.
+    """
+    assert sampling_rate >= 2, "sampling rate must be greater than or equal to 2."
+    # b2_s is a subcontour (section of border contour)
+    sc = border
+    colors = np.empty((len(sc)//sampling_rate, 3), dtype=np.uint8)
+    points = np.empty((len(sc)//sampling_rate, 2))
+    i=0
+    for n in range(0,len(sc)-sampling_rate, sampling_rate):
+        (x,y) = sc[n]
+        # This point is used to determine where the orthoganol points lie:
+        (x1,y1) = sc[n+sampling_rate]
+        h, w = y1-y, x1-x
+        hypo = np.sqrt(h**2 + w**2) # getting hypo to normalize the distance from border
+        
+        # The sampled point that is `dist` away from the border:
+        p = (int(x + dist*h/hypo), 
+             int(y - dist*w/hypo))
+        
+        # appending the sampled point to the list of points:
+        colors[i] = img[p[1],p[0]] # image is in (yx) format
+        points[i] = p
+        
+    return colors, points
+
 def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[float]]:
     """
     High-level determination of the shape of an border segment using np.polyfit.
