@@ -98,15 +98,15 @@ def get_orthoganol_colors(img, border, dist=10, sampling_rate=5) -> Tuple[np.arr
         Tuple[np.array, np.array]: The sampled colors and their coordinates in xy format.
     """
     assert sampling_rate >= 2, "sampling rate must be greater than or equal to 2."
-    # b2_s is a subcontour (section of border contour)
+    
     sc = border
-    colors = np.empty((len(sc)//sampling_rate, 3), dtype=np.uint8)
-    points = np.empty((len(sc)//sampling_rate, 2))
+    colors = np.empty((len(border)//sampling_rate, 3), dtype=np.uint8)
+    points = np.empty((len(border)//sampling_rate, 2))
     i=0
-    for n in range(0,len(sc)-sampling_rate, sampling_rate):
-        (x,y) = sc[n]
+    for n in range(0,len(border)-sampling_rate, sampling_rate):
+        (x,y) = border[n]
         # This point is used to determine where the orthoganol points lie:
-        (x1,y1) = sc[n+sampling_rate]
+        (x1,y1) = border[n+sampling_rate]
         h, w = y1-y, x1-x
         hypo = np.sqrt(h**2 + w**2) # getting hypo to normalize the distance from border
         
@@ -114,10 +114,12 @@ def get_orthoganol_colors(img, border, dist=10, sampling_rate=5) -> Tuple[np.arr
         p = (int(x + dist*h/hypo), 
              int(y - dist*w/hypo))
         
-        # appending the sampled point to the list of points:
-        colors[i] = img[p[1],p[0]] # image is in (yx) format
+        # Getting inner points when going clockwise around boundary
+        colors[i] = (img[p[1],p[0]]) # image is in (yx) format
         points[i] = p
-        
+        i+=1
+    
+    print(points)
     return colors, points
 
 def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[float]]:
