@@ -4,9 +4,17 @@ from src.segmentation.FIXME import get_image_and_border
 from src.segmentation.segment_border import *
 # from research.Jean.matching.segment_border import *
 from src.utils import border_ops
+from research.Jean.matching.util_functions import getting_orthoganol_colors
 
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
-img_matcher = Matcher(img, kmeans=False)
+img_matcher = Matcher(img, borders, kmeans=False)
+
+#%%
+# getting_orthoganol_colors(img, borders[0][:,0], dist=10)
+border_ops.get_orthoganol_colors(img, borders[0][:,0], dist=10)
+
+exit()
+
 
 #%% Pieces 0 and 2 can connect on one side:
 b1 = borders[0]

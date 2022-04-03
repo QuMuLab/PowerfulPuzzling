@@ -3,41 +3,54 @@ import matplotlib.pyplot as plt
 import cv2 as cv
 from dtw import dtw, rabinerJuangStepPattern
 
-def getting_orthoganol_colors(img, b2_s):
+def getting_orthoganol_colors(img, b2_s, dist=10, sampling_rate=3):
     """Gets the colors (in HSV format) orthogonal to the contour segment.
+    
+    Using this formula we can get colors within the border that are x distance way from it.
+    https://www.desmos.com/calculator/fpr5vp82vd
 
     Args:
-        img ([type]): The original RGB image        
+        img ([type]): The original RGB image in yx format     
         b2_s ([type]): the contour segment for the piece
+        dist ([type], optional): How many pixels away from the border to sample from. Defaults to 5.
     """
     # b2_s is a subcontour (section of border contour)
-    sc = np.flip(b2_s[:, 0])
-    colors = []
+    sc = b2_s
+    colors = np.empty((len(sc)//sampling_rate, 3), dtype=np.uint8)
     tangent_line = []
-    points_x = []
-    points_y = []
-    for n in range(0,len(sc)-3,3):
-        (y,x) = sc[n]
+    points = np.empty((len(sc)//sampling_rate, 2))
+    i = 0
+    for n in range(0,len(sc)-sampling_rate, sampling_rate):
+        (x,y) = sc[n]
         # This point is used to determine where the orthoganol points lie:
-        (y1,x1) = sc[n+3] 
-        h,w = y1-y, x1-x
-        colors.append(img[y-w,x+h,:3] + img[y+w,x-h,:3])
-        points_x.append(x+h)
-        points_y.append(y-w)
-        points_x.append(x-h)
-        points_y.append(y+w)
+        (x1,y1) = sc[n+sampling_rate]
+        h, w = y1-y, x1-x
+        hypo = np.sqrt(h**2 + w**2) # getting hypo to normalize the distance from border
+        
+        # The sampled point that is `dist` away from the border:
+        p = (int(x + dist*h/hypo), 
+             int(y - dist*w/hypo))
+        colors[i] = (img[p[1],p[0]]) # image is in (yx) format
+        
+        # Getting inner points when going clockwise around boundary
+        points[i] = p
             
         tangent_line.append([x1,y1,x,y])
-        
+        i+=1
+    
     colors = np.array(colors, 'uint8').reshape(-1,1,3)
     colors = cv.cvtColor(colors, cv.COLOR_RGB2HSV) # converting to HSV (RGB may mislead; e.g. 130 is as close to 160 as 190)
     colors = colors.reshape(-1,3)
     
+    print(len(colors))
+    print(len(sc)//sampling_rate)
     # displaying the sampled colors 
-    plt.imshow(img[:,:,:3])
-    print('=', colors[0])
+    plt.imshow(img)
+    print(img.shape)
+    print('=', colors[0]/255)
     print('bp:', tangent_line[0])
-    plt.scatter(points_x, points_y, c='y')
+    for x,y,c in zip(points[:,0], points[:,1], colors):
+        plt.scatter(x, y, c=[c/255])
     clr = ['b', 'r']
     for i in range(len(tangent_line)):
         plt.plot([tangent_line[i][0],tangent_line[i][2]], 

@@ -1,4 +1,5 @@
 """This is where we will call the functions from the powerful pluzzling algo"""
+#%%
 from cmath import inf
 from turtle import shape
 from src.app import get_hint, complete_puzzle
@@ -12,16 +13,18 @@ import numpy as np
 from typing import Tuple
 import cv2 as cv
 from dtw import dtw, rabinerJuangStepPattern
-
+#%%
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
+
 img_matcher = Matcher(img, borders=borders, kmeans=False)
 
+#%% getting matches
 matches = img_matcher.get_matches()  
 
-# displaying top 3 matches on the original image:
+# %% displaying top 3 matches on the original image:
 # displaying the original image
 plt.imshow(img)
-n_display = 5
+n_display = 6
 
 # displaying the border contours
 for match_val, (i,j), match_segs in matches[:n_display]:
