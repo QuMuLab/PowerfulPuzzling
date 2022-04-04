@@ -10,7 +10,7 @@ import numpy as np
 import cv2 as cv
 from src.segmentation import segment_border
 
-from src.utils import border_ops
+from src.utils import border_ops, display
 
 class Matcher:
     def __init__(self, original_image: np.array, borders:list[np.array], ksize=31, kmeans=False, n_clusters=5) -> None:
@@ -46,7 +46,7 @@ class Matcher:
             
         self.hsv_puzzle = cv.cvtColor(self.denoised_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi       
         
-    def get_matches(self, weighting=[1,1], display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
+    def get_matches(self, weighting=[1,1], display_borders=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
         """
         Gets the best matching segments b/t each border and returns a sorted list of tuples containing 
         the match score, the piece index, and the piece's contour (coordinate values).
@@ -54,7 +54,7 @@ class Matcher:
         Args:
             weighting (list[float], optional): The weighting for shape and color matching respectively. So if one of
                     them is set to zero then we just ignore that distance score. Defaults to [1,1] (both equally weighted).
-            display (bool, optional): whether or not to display the matched contours. Defaults to False.
+            display_borders (bool, optional): whether or not to display the matched contours. Defaults to False.
 
         Returns:
             list[float, Tuple[int, int], Tuple[np.array, np.array]]: a list of tuples containing the
@@ -81,14 +81,14 @@ class Matcher:
             for j in range(i+1, n): # +1 to prevent match with self 
                 _, seg_match_val, seg_match_points = self.get_matching_segments(self.border_segments[i], 
                                                                                     self.border_segments[j], weighting=weighting)
-                if display:
+                if display_borders:
                     # displaying the border contours
-                    border_ops.display_border(contours[i], c='b')
-                    border_ops.display_border(contours[j], c='b')
+                    display.display_border(contours[i], c='b')
+                    display.display_border(contours[j], c='b')
                     
                     # displaying the segment of the border contours:
-                    border_ops.display_border(seg_match_points[0], c='y')
-                    border_ops.display_border(seg_match_points[1], c='y')
+                    display.display_border(seg_match_points[0], c='y')
+                    display.display_border(seg_match_points[1], c='y')
                     plt.title("Score: "+str(seg_match_val))
                     plt.show()
                 

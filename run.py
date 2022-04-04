@@ -1,18 +1,11 @@
 """This is where we will call the functions from the powerful pluzzling algo"""
 #%%
-from cmath import inf
-from turtle import shape
-from src.app import get_hint, complete_puzzle
 from src.border_matching import Matcher
-from src.segmentation.FIXME import get_image_and_border
-from src.segmentation import segment_border
-from src.utils import border_ops
+from src.segmentation.get_border import get_image_and_border
+from src.utils import border_ops, display
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import numpy as np
-from typing import Tuple
 import cv2 as cv
-from dtw import dtw, rabinerJuangStepPattern
 #%%
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
 
@@ -28,14 +21,14 @@ n_display = 6
 
 # displaying the border contours
 for match_val, (i,j), match_segs in matches[:n_display]:
-    border_ops.display_border(borders[i], color='b')
-    border_ops.display_border(borders[j], color='b')
+    display.display_border(borders[i], color='b')
+    display.display_border(borders[j], color='b')
 
 
 for match_val, (i,j), match_segs in matches[:n_display]:
     # displaying the segment of the border contours:
-    border_ops.display_border(match_segs[0], c='y')
-    border_ops.display_border(match_segs[1], c='y')
+    display.display_border(match_segs[0], c='y')
+    display.display_border(match_segs[1], c='y')
     
     
     # drawing a line between the two points:

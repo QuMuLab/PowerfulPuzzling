@@ -1,9 +1,9 @@
 #%%
 from src.border_matching.matcher import Matcher
-from src.segmentation.FIXME import get_image_and_border
+from src.segmentation.get_border import get_image_and_border
 from src.segmentation.segment_border import *
 # from research.Jean.matching.segment_border import *
-from src.utils import border_ops
+from src.utils import border_ops, display
 from research.Jean.matching.util_functions import getting_orthoganol_colors
 
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
@@ -38,8 +38,8 @@ for i, s in enumerate(seg_is):
     mse = border_ops.get_mse(sb)
     if mse > 5: # only displaying non line segments
         print(border_ops.get_poly_shape(seg_vals[i], cutoff=0))
-        border_ops.display_border(b)
-        border_ops.display_border(sb)
+        display.display_border(b)
+        display.display_border(sb)
         plt.title("mse = "+str(mse))
         plt.show() 
 
@@ -53,12 +53,12 @@ b2 = borders[2]
 
 match_val, match_segs = img_matcher.get_matching_segments(b1[:,0], b2[:,0], mse_cutoff=5.0)
 # displaying the border contours
-border_ops.display_border(b1[:,0], color='b')
-border_ops.display_border(b2[:,0], color='b')
+display.display_border(b1[:,0], color='b')
+display.display_border(b2[:,0], color='b')
 
 # displaying the segment of the border contours:
-border_ops.display_border(match_segs[0], c='y')
-border_ops.display_border(match_segs[1], c='y')
+display.display_border(match_segs[0], c='y')
+display.display_border(match_segs[1], c='y')
 plt.title("Match Score: "+str(match_val))
 plt.show()
 
@@ -68,11 +68,11 @@ matches = img_matcher.get_matching_pieces(display=False)
 # %% displaying the matches:
 for match_val, (i,j), match_segs in matches:
     # displaying the border contours
-    border_ops.display_border(borders[i], color='b')
-    border_ops.display_border(borders[j], color='b')
+    display.display_border(borders[i], color='b')
+    display.display_border(borders[j], color='b')
 
     # displaying the segment of the border contours:
-    border_ops.display_border(match_segs[0], c='y')
-    border_ops.display_border(match_segs[1], c='y')
+    display.display_border(match_segs[0], c='y')
+    display.display_border(match_segs[1], c='y')
     plt.title("Match Score: "+str(match_val))
     plt.show()

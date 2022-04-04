@@ -5,7 +5,7 @@ jigsaw parts.
 """
 
 from typing import Tuple
-from src.utils import border_ops
+from src.utils import border_ops, display
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import find_peaks_cwt
@@ -60,8 +60,8 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
         
     if display_borders:
         # Displaying the border with the segments:
-        display_border_points(b, ur_b, sampling_rate=sampling_rate, threshold=threshold)
-        display_border_segments(b, ur_b, segment_indices, sampling_rate=sampling_rate)
+        display.display_border_points(b, ur_b, sampling_rate=sampling_rate, threshold=threshold)
+        display.display_border_segments(b, ur_b, segment_indices, sampling_rate=sampling_rate)
         
         # Displaying the ratios plot:
         plt.figure(figsize=(10,4))
@@ -202,11 +202,11 @@ def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104,
         segment_indices.append(np.array([l_i, r_i])) # cast as np.array for easy computation later.
         
         # Getting the actual segment values:
-        segment_val_ur = get_border_vals(l_i, r_i, ur_b, display=False) # unrolled border values
+        segment_val_ur = get_border_vals(l_i, r_i, ur_b, display_p=False) # unrolled border values
         segment_vals.append(segment_val_ur)
         
         if get_border_points:# actual border values (yx coordinates)
-            segment_p_b = get_border_vals(l_i*sampling_rate, r_i*sampling_rate, b, display=False) 
+            segment_p_b = get_border_vals(l_i*sampling_rate, r_i*sampling_rate, b, display_p=False) 
             segment_points_b.append(segment_p_b)
     
     if segment_points_b: # checking to make sure not empty
@@ -214,7 +214,7 @@ def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104,
     else:
         return segment_indices, segment_vals, None
 
-def get_border_vals(start:int, end:int, b:np.array, display=False):
+def get_border_vals(start:int, end:int, b:np.array, display_p=False):
     """
     Gets the border segment corresponding to the start and end params passed in.
     This can be the points of the original border or the values from the 
@@ -230,14 +230,14 @@ def get_border_vals(start:int, end:int, b:np.array, display=False):
         b (np.array): The border array to get the points from (unrolled or shape of 
                 (n,2) for the original)
         
-        display (bool, optional): Whether to display the border points. Defaults to False.
+        display_p (bool, optional): Whether to display the border points. Defaults to False.
         
     Returns:
         np.array: The border values.
     """
     border_points = len(b.shape) == 2 and b.shape[-1] == 2 # border points are stored as (n,2)
     assert len(b.shape) == 1 or border_points,  f"Segment shapes for border points must be (n, 2)! Got {b.shape}."
-    if not border_points and display: 
+    if not border_points and display_p: 
         print("Warning: display is true but border points were not passed in! Nothing will be displayed.")
         
     if start >= end: # should always be true unless at the end of the array
@@ -245,54 +245,7 @@ def get_border_vals(start:int, end:int, b:np.array, display=False):
     else: # if end < start then we have to wrap around the array
         border_vals = np.concatenate((b[end:len(b)], b[0:start]))
         
-    if display and border_points:
+    if display_p and border_points:
         plt.scatter(border_vals[:,0], border_vals[:,1], 70, c='g', marker='o', alpha=0.7)
         
     return border_vals
-
-def display_border_points(b, ur_b, sampling_rate=25, threshold=0.1040115024073753):
-    border_ops.display_border(b)
-    
-    for i in range(len(b)):
-        p = b[i]
-        
-        ur_i = i // sampling_rate
-        if i % sampling_rate == 0:        
-            ur_p = ur_b[ur_i-1]
-            if ur_p > threshold:
-                plt.scatter(p[0], p[1], c='y')
-            elif ur_p < -threshold:
-                plt.scatter(p[0], p[1], c='y')
-            else:
-                plt.scatter(p[0], p[1], c='r')  
-            
-            if ur_i % 10 == 0:
-                plt.text(p[0], p[1], str(ur_i))
-
-def display_border_segments(b, ur_b, segment_indices, sampling_rate=25):
-    for l_i, r_i in segment_indices:
-        i = r_i * sampling_rate # should already be within the bounds of a border
-        r_p = b[i]
-        
-        i = l_i * sampling_rate
-        l_p = b[i]
-        
-        # Drawing the segment b/t the left and right line points:
-        if l_i >= r_i: # should always be true unless at the edge of the array
-            for i in range(r_i, l_i+1):
-                i = i * sampling_rate
-                p = b[i]
-                plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
-        else: # if l_i < r_i then we have to wrap around the array
-            for i in range(r_i, len(ur_b)):
-                i = i * sampling_rate
-                p = b[i]
-                plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
-                
-            for i in range(0, l_i):
-                i = i * sampling_rate
-                p = b[i]
-                plt.scatter(p[0], p[1], 70, c='g', marker='o', alpha=0.7)
-        
-        plt.scatter(l_p[0], l_p[1], 500, c='b', marker='x')
-        plt.scatter(r_p[0], r_p[1], 500, c='r', marker='+')
