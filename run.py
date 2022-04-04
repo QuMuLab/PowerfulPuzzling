@@ -19,7 +19,7 @@ img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
 img_matcher = Matcher(img, borders=borders, kmeans=False)
 
 #%% getting matches
-matches = img_matcher.get_matches()  
+matches = img_matcher.get_matches(weighting=[2,1])  
 
 # %% displaying top 3 matches on the original image:
 # displaying the original image
@@ -48,6 +48,8 @@ for match_val, (i,j), match_segs in matches[:n_display]:
     p3 = [(p1[0]+p2[0])/2, (p1[1]+p2[1])/2]
     
     # adding a label to the line:
-    plt.text(p3[0], p3[1], str(round(match_val,3)), color='black')
+    plt.text(p3[0], p3[1], str(round(match_val,3)), color='darkgreen')
     
 plt.show()
+
+# %%

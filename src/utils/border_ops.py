@@ -82,17 +82,19 @@ def get_mse(border_segment:np.array) -> float:
     
     return min(mse_x, mse_y)
 
-def get_orthoganol_colors(img, border, dist=10, sampling_rate=5) -> Tuple[np.array, np.array]:
-    """Gets the colors (in HSV format) orthogonal to the contour segment.
+def get_orthoganol_colors(img:np.array, border:np.array, dist=10, sampling_rate=5) -> Tuple[np.array, np.array]:
+    """Samples the colors orthogonal to the contour segment.
     
     Using this formula we can get colors within the border that are x distance way from it.
     https://www.desmos.com/calculator/fpr5vp82vd
 
     Args:
-        img ([type]): The image to sample colors from in yx format     
-        b2_s ([type]): the contour segment for the piece
-        dist ([type], optional): How many pixels away from the border to sample from. 
+        img (np.array): The image to sample colors from in yx format     
+        border (np.array): the contour segment for the piece.
+        
+        dist (int, optional): How many pixels away from the border to sample from. 
                 Defaults to 5.
+        sampling_rate (int, optional): How many pixels to skip between sampling.
         
     Returns:
         Tuple[np.array, np.array]: The sampled colors and their coordinates in xy format.
@@ -118,8 +120,7 @@ def get_orthoganol_colors(img, border, dist=10, sampling_rate=5) -> Tuple[np.arr
         colors[i] = (img[p[1],p[0]]) # image is in (yx) format
         points[i] = p
         i+=1
-    
-    print(points)
+        
     return colors, points
 
 def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[float]]:

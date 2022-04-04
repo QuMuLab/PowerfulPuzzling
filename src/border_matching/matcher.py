@@ -42,14 +42,14 @@ class Matcher:
             
         self.hsv_puzzle = cv.cvtColor(self.denoised_puzzle, cv.COLOR_RGB2HSV) # for color matching with DTWi       
         
-    def get_matches(self, by_shape=True, by_color=False, display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
+    def get_matches(self, weighting=[1,1], display=False) -> list[float, Tuple[int,int], Tuple[np.array, np.array]]:
         """
         Gets the best matching segments b/t each border and returns a sorted list of tuples containing 
         the match score, the piece index, and the piece's contour (coordinate values).
         
         Args:
-            by_shape (bool, optional): Whether or not to use shape matching. Defaults to True.
-            by_color (bool, optional): Whether or not to use color matching. Defaults to False.
+            weighting (list[float], optional): The weighting for shape and color matching respectively. So if one of
+                    them is set to zero then we just ignore that distance score. Defaults to [1,1] (both equally weighted).
             display (bool, optional): whether or not to display the matched contours. Defaults to False.
 
         Returns:
@@ -64,8 +64,9 @@ class Matcher:
             for j in range(i+1, n): # +1 to prevent match with self 
                 
                 # TODO: keep track of the best match score for each piece and dont allow it to be the top match for future pairs if it has a worse score
+                # this will prevent duplicates from happening
+                match_val, match_pixels = self.get_matching_segments(contours[i], contours[j], weighting=weighting)
                 
-                match_val, match_pixels = self.get_matching_segments(contours[i], contours[j], by_shape=True, by_color=False,)
                 if display:
                     # displaying the border contours
                     border_ops.display_border(contours[i], c='b')
@@ -82,7 +83,7 @@ class Matcher:
         matches.sort(key=lambda x: x[0]) # Sort by match_val
         return matches
     
-    def get_matching_segments(self, b1:np.array, b2:np.array, mse_cutoff=5.0, by_shape=True, by_color=False,) -> Tuple[float, Tuple[np.array, np.array]]:
+    def get_matching_segments(self, b1:np.array, b2:np.array, mse_cutoff=5.0, weighting=[1,1]) -> Tuple[float, Tuple[np.array, np.array]]:
         """
         Gets the best matching segments from two contours. This is done by shape and then 
         validated with color.
@@ -94,8 +95,8 @@ class Matcher:
             
             mse_cutoff (float, optional): The MSE cutoff that determines if a segment is a line or not. 
                     Defaults to 5.0.
-            by_shape (bool, optional): Whether or not to use shape matching. Defaults to True.
-            by_color (bool, optional): Whether or not to use color matching. Defaults to False.
+            weighting (list[float], optional): The weighting for shape and color matching respectively. So if one of them 
+                    is set to zero then we just ignore that distance score. Defaults to [1,1] (both equally weighted).
 
         Returns:
             Tuple[float, Tuple[np.array, np.array]]: The best match value and the pixel locations for 
@@ -132,8 +133,15 @@ class Matcher:
                 if mse1 > mse_cutoff and mse2 > mse_cutoff and shape1 == -shape2:
                     # Low level shape match first:
                     _, shape_dist_norm = self.match_shape_distance(seg1, -seg2) # Negative to flip the curve so they overlap
-                    if shape_dist_norm < best_match_val:
-                        best_match_val = shape_dist_norm
+                    
+                    # Then Low level color match:
+                    _, color_dist_norm = self.match_color_distance(seg_points1[seg1_i], seg_points2[seg2_i])
+                    
+                    # Weighted sum of the two distances:
+                    weighted_dist = (shape_dist_norm * weighting[0]) + (color_dist_norm * weighting[1])
+                    
+                    if weighted_dist < best_match_val:
+                        best_match_val = weighted_dist
                         best_match_i = (seg1_i, seg2_i)
                         
         assert best_match_i != (-1, -1), "ERROR: no best matching found."
@@ -144,7 +152,7 @@ class Matcher:
         return best_match_val, best_match_points
 
     def match_color_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
-                         distance_only=True, display=False, y_first=True) -> Tuple[float, float]: # TODO: complete this function
+                         distance_only=True, display=False) -> Tuple[float, float]: # TODO: complete this function
         """
         Matching validation based on colors along the border segment.
         The method used here is a cummulative DTW approach (DTWi from 
@@ -159,7 +167,6 @@ class Matcher:
                 (see dtw-python docs for more info). Defaults to "symmetric2".
             distance_only (bool, optional): Only calculate the distance (no backtracking). Defaults to True.
             display (bool, optional): Display threeway and twoway plots. Defaults to False.
-            y_first (bool, optional): y is the first value in the pixel position. Defaults to True
 
         Returns:
             Tuple[float, float]: distance and normalized distance value from DTW, respectively.
@@ -170,17 +177,22 @@ class Matcher:
         assert len(seg1.shape) == 2 and len(seg2.shape) == 2, f"Segment shapes must be (n, 2)! Got {seg1.shape} and {seg2.shape}."
         
         # Extracting the HSV values
-        hsv1 = self.hsv_puzzle[seg1[:, int(y_first)], seg1[:, int(not y_first)]]
-        hsv2 = self.hsv_puzzle[seg2[:, int(y_first)], seg2[:, int(not y_first)]]
+        hsv1, _ = border_ops.get_orthoganol_colors(self.hsv_puzzle, seg1) # second return is the yx values themselves
+        hsv2, _ = border_ops.get_orthoganol_colors(self.hsv_puzzle, seg2)
         
-        # Running DTW on each individual color format (H, S, and V)        
+        # converting hsv values to normalized form:
+        # "For HSV, hue range is [0,179], saturation range is [0,255], and value range is [0,255]" (https://docs.opencv.org/4.x/df/d9d/tutorial_py_colorspaces.html)
+        hsv1 = np.array([[h/179, s/255, v/255]for h,s,v in hsv1])
+        hsv2 = np.array([[h/179, s/255, v/255]for h,s,v in hsv2])
+        
+        # Running DTW on each individual color channel (H, S, and V)        
         DTW_h = dtw(hsv1[:,0], hsv2[:,0], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
         DTW_s = dtw(hsv1[:,1], hsv2[:,1], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
         DTW_v = dtw(hsv1[:,2], hsv2[:,2], step_pattern=step_pattern, keep_internals=display, distance_only=distance_only)
         
-        # Summing all to get cumulative value        
-        dist = DTW_h.distance + DTW_s.distance + DTW_v.distance
-        norm_dist = DTW_h.normalizedDistance + DTW_s.normalizedDistance + DTW_v.normalizedDistance
+        # Summing all to get average value        
+        dist = (DTW_h.distance + DTW_s.distance + DTW_v.distance) / 3
+        norm_dist = (DTW_h.normalizedDistance + DTW_s.normalizedDistance + DTW_v.normalizedDistance) / 3
         
         # Displaying all three:
         if display:
