@@ -64,17 +64,23 @@ class Matcher:
         contours = self.border_contours
         n = len(contours) # Number of pieces
         matches = [] # Sorted list of match_val, border indexes, and match_pixels
+        # TODO: Use the folowing to keep track of the best match score for each piece and 
+        # prevent duplicate pairs that have a worse score.
+        # Something like the following format for it would be needed and some recursion to recover 
+        # previous matches that were overwritten: # REVIEW: is this an NP-Hard problem?
+        # segment_best_match_vals = {} # Dictionary of possible matches for each segment
+        # {
+        #     "border_i - segment_i": {
+        #           "match_val": float,
+        #           "segment_key": "border_i - segment_i",            
+        #      }
+        # }
+        # before setting as 
         
         for i in range(n):
             for j in range(i+1, n): # +1 to prevent match with self 
-                
-                # TODO: keep track of the best match score for each piece and don't allow it to be the top match for future pairs if it has a worse score
-                # this will prevent duplicates from happening.
-                seg_matches = self.get_matching_segments(self.border_segments[i], self.border_segments[j], weighting=weighting)
-                # getting the best match
-                seg_match_i, seg_match_val = seg_matches[0]
-                seg_match_points = (self.border_segments[i][1][seg_match_i[0]], self.border_segments[j][1][seg_match_i[1]])
-                
+                _, seg_match_val, seg_match_points = self.get_matching_segments(self.border_segments[i], 
+                                                                                    self.border_segments[j], weighting=weighting)
                 if display:
                     # displaying the border contours
                     border_ops.display_border(contours[i], c='b')
@@ -107,8 +113,8 @@ class Matcher:
                     is set to zero then we just ignore that distance score. Defaults to [1,1] (both equally weighted).
 
         Returns:
-            List[Tuple[Tuple[int,int], float]]: A list of tuples containing the match indicies for b1 and b2 respectively 
-                    and the match value. Sorted by match_val with the best match being first.
+            Tuple[Tuple[int,int], float]: A tuple containing the match indicies for b1 and b2 respectively 
+                    and the match value for the best match.
         """
         # Getting the locations of where the jigsaw segments are:
         seg_vals1, seg_points1 = b1_info
@@ -123,7 +129,9 @@ class Matcher:
         seg_mse2 = [border_ops.get_mse(s2) for s2 in seg_points2]
         
         # Getting the best matching segments from the two borders:
-        matches = []
+        # matches = []
+        best_match_val = inf
+        best_match_i = (-1,-1)
         for seg1_i, seg1 in enumerate(seg_vals1): # seg_vals is the angles
             shape1 = seg_shapes1[seg1_i] 
             mse1 = seg_mse1[seg1_i]
@@ -142,12 +150,16 @@ class Matcher:
                     # Weighted sum of the two distances:
                     weighted_dist = (shape_dist_norm * weighting[0]) + (color_dist_norm * weighting[1])
                     
-                    matches.append(((seg1_i, seg2_i), weighted_dist)) # the distance and the index of the matching segments
+                    # matches.append(((seg1_i, seg2_i), weighted_dist)) # the distance and the index of the matching segments
+                    
+                    if weighted_dist < best_match_val:
+                        best_match_i = (seg1_i, seg2_i)
+                        best_match_val = weighted_dist
         
-        assert len(matches) > 0,  "ERROR: no best matching found."
-        matches.sort(key=lambda x: x[1]) # Sort by distance
+        assert best_match_i != (-1,-1),  "ERROR: no best matching found."
+        # matches.sort(key=lambda x: x[1]) # Sort by distance
         
-        return matches
+        return best_match_i, best_match_val, (seg_points1[best_match_i[0]], seg_points2[best_match_i[1]])
 
     def match_color_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
                          distance_only=True, display=False) -> Tuple[float, float]: 
