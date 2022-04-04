@@ -19,7 +19,7 @@ img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
 img_matcher = Matcher(img, borders=borders, kmeans=False)
 
 #%% getting matches
-matches = img_matcher.get_matches(weighting=[2,1])  
+matches = img_matcher.get_matches(weighting=[5,1])  
 
 # %% displaying top 3 matches on the original image:
 # displaying the original image
