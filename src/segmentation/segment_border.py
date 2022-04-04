@@ -43,9 +43,6 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
         segment_padding (int, optional): The padding to use for the segments. Defaults to 2.
                 
     Returns:
-        list(np.array): A list of tuples of the start and end index positions for the segments 
-                on the unrolled border plane (multiply by the sampling rate to convert to original 
-                border index).
         list(np.array): The unrolled border values for each segment.
         list(np.array): The corresponding y,x values for each segment (from the original image).
     """
@@ -74,7 +71,7 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
         plt.xticks(np.arange(0, len(ur_b), 5))
         plt.show()
     
-    return segment_indices, segment_vals, segment_points_b
+    return segment_vals, segment_points_b
  
 def get_ratios(ur_b:np.array, threshold=0.104, gamma=0.75) -> np.array:
     """

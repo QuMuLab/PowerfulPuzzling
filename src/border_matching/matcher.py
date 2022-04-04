@@ -30,6 +30,10 @@ class Matcher:
         
         # converting borders to shape of (n,2)
         self.border_contours = [border.reshape(-1,2) for border in borders]
+        self.border_angles = [border_ops.unroll_border(border) for border in self.border_contours]
+        # get_border_segments returns a list of tuples containing the unrolled segment values and the corresponding y,x values 
+        # for each segment (from the original image)
+        self.border_segments = [segment_border.get_border_segments(b_angles, b) for b_angles, b in zip(self.border_angles, self.border_contours)]
                 
         if kmeans:
             assert n_clusters > 0, "ERROR: n_clusters must be greater than 0."
@@ -60,12 +64,13 @@ class Matcher:
         contours = self.border_contours
         n = len(contours) # Number of pieces
         matches = [] # Sorted list of match_val, border indexes, and match_pixels
+        
         for i in range(n):
             for j in range(i+1, n): # +1 to prevent match with self 
                 
-                # TODO: keep track of the best match score for each piece and dont allow it to be the top match for future pairs if it has a worse score
+                # TODO: keep track of the best match score for each piece and don't allow it to be the top match for future pairs if it has a worse score
                 # this will prevent duplicates from happening
-                match_val, match_pixels = self.get_matching_segments(contours[i], contours[j], weighting=weighting)
+                _, match_val, match_pixels = self.get_matching_segments(self.border_segments[i], self.border_segments[j], weighting=weighting)
                 
                 if display:
                     # displaying the border contours
@@ -83,15 +88,15 @@ class Matcher:
         matches.sort(key=lambda x: x[0]) # Sort by match_val
         return matches
     
-    def get_matching_segments(self, b1:np.array, b2:np.array, mse_cutoff=5.0, weighting=[1,1]) -> Tuple[float, Tuple[np.array, np.array]]:
+    def get_matching_segments(self, b1_info:tuple, b2_info:tuple, mse_cutoff=5.0, weighting=[1,1]) -> Tuple[Tuple[int,int], float, Tuple[np.array, np.array]]:
         """
         Gets the best matching segments from two contours. This is done by shape and then 
         validated with color.
 
         Args:
-            b1 (np.array): A border/contour in the form of (n,2) where each element is the yx coors for the pixels 
-                    on the border.
-            b2 (np.array): The border/contour to match with in the same format as b1.
+            b1_info (tuple): The list of tuples containing the unrolled segment values and the corresponding 
+                    y,x values returned from get_border_segments.
+            b2_info (tuple): Same as b1_info but for the second border.
             
             mse_cutoff (float, optional): The MSE cutoff that determines if a segment is a line or not. 
                     Defaults to 5.0.
@@ -99,16 +104,12 @@ class Matcher:
                     is set to zero then we just ignore that distance score. Defaults to [1,1] (both equally weighted).
 
         Returns:
-            Tuple[float, Tuple[np.array, np.array]]: The best match value and the pixel locations for 
-                    the matching segments.
+            Tuple[Tuple[int,int], float, Tuple[np.array, np.array]]: The best match indicies for b1 and b2 respectively, 
+                    the best match value and the pixel locations for those matching segments.
         """
-        # Unrolling the border by sampling for angles
-        b1_angles = border_ops.unroll_border(b1)
-        b2_angles = border_ops.unroll_border(b2)
-        
         # Getting the locations of where the jigsaw segments are:
-        seg_is1, seg_vals1, seg_points1 = segment_border.get_border_segments(b1_angles, b1, display_borders=False)
-        seg_is2, seg_vals2, seg_points2 = segment_border.get_border_segments(b2_angles, b2, display_borders=False)
+        seg_vals1, seg_points1 = b1_info
+        seg_vals2, seg_points2 = b2_info
         
         # getting poly shape and MSE beforehand to speed up matching by avoiding redundant computations
         # Value from polyshape will be +1 or -1 value depending on if concave or convex
@@ -120,7 +121,7 @@ class Matcher:
         
         # Getting the best matching segments from the two borders:
         #TODO: expand to include color matching
-        best_match_i = (-1, -1) # best match index for left and right border segments
+        best_match_i = (-1, -1) # best match index for b1 and b2 border segments
         best_match_val = inf # the distance value
         for seg1_i, seg1 in enumerate(seg_vals1): # seg_vals is the angles
             shape1 = seg_shapes1[seg1_i] 
@@ -149,7 +150,7 @@ class Matcher:
         # Returning the pixel position of each segment so that it can be highlighted in the image
         best_match_points = (seg_points1[best_match_i[0]], seg_points2[best_match_i[1]])
         
-        return best_match_val, best_match_points
+        return best_match_i, best_match_val, best_match_points
 
     def match_color_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
                          distance_only=True, display=False) -> Tuple[float, float]: # TODO: complete this function
