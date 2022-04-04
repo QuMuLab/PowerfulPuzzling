@@ -8,52 +8,6 @@ import numpy as np
 from cmath import inf
 import matplotlib.pyplot as plt
 
-def display_border(border, **kwargs):
-    if len(border.shape) != 2:
-        n = border.shape[0]
-        b = border.reshape(n, 2)
-    else:
-        b = border
-    plt.scatter(b[:,0], b[:,1], **kwargs)
-
-def display_std_ur_border(ur_b, std_multiplier=0.25):
-    """
-    This function displays the unrolled border with the following:
-        standard deviation: red
-        standard deviation * std_multiplier: yellow
-        mean: blue
-        min: green
-        max: green
-
-    Args:
-        ur_b (np.array): The unrolled border.
-        std_multiplier (float, optional): The threshold for the standard deviation. 
-                Defaults to 0.25.
-    """
-    plt.figure(figsize=(20,3))
-    # gettin min mean max and std:
-    mean = np.mean(ur_b)
-    std = np.std(ur_b)
-    max = np.max(ur_b)
-    min = np.min(ur_b)
-    std_multiplied = std*std_multiplier
-    
-    print("std threshold:", std_multiplied)
-    print("mean+std:", mean + std_multiplied)
-    
-    plt.plot(ur_b)
-    plt.plot((0, len(ur_b)), (mean + std, mean + std), c='r')
-    plt.plot((0, len(ur_b)), (mean - std, mean - std), c='r')
-
-    plt.plot((0, len(ur_b)), (mean + std_multiplied, mean + std_multiplied), c='y')
-    plt.plot((0, len(ur_b)), (mean - std_multiplied, mean - std_multiplied), c='y')
-
-    plt.plot((0, len(ur_b)), (mean,mean), c='b')
-
-    plt.plot((0, len(ur_b)), (max,max), c='g')
-    plt.plot((0, len(ur_b)), (min,min), c='g')
-    plt.xticks(np.arange(0, len(ur_b), 5))
-
 def get_mse(border_segment:np.array) -> float:
     """
     Calculates the mean squared error from a list of y,x points after performing a linear regression.
@@ -323,42 +277,3 @@ def rotate_points(points:np.array, deg=1, inplace=True) -> np.array:
     else:
         rotated = points@rot_mat
     return rotated
-
-#Alternate border unrolling: # TODO: delete when testing is done.
-
-# rot = rotate_points(b3[:,0])
-# obs = b3[:,0][:,0]
-
-# # %%
-# bimg = points2img(b3[:,0])
-
-#border unrolling
-
-# # n = num of observations:
-# n = 4 # max is 360 -> observe for each 1 deg rotation
-# step = 360//n
-# sides = []
-# for i in range(0, 360, step):
-#     pts = np.array(rotate_points(b3[:,0], deg=i), dtype=int)
-#     pt_img = points2img(pts)
-#     unrolled = []
-#     for j in range(pt_img.shape[0]):
-#         obs_ps = np.where(pt_img[j] == 1)[0]
-#         if obs_ps.shape[0] > 0:
-#             unrolled.append(obs_ps[0])
-#     sides.append(unrolled)
-    
-# # %% displaying each side:
-# curr = 0
-# for i in range(n):
-#     l = len(sides[i])
-#     plt.scatter(list(range(curr, l+curr)), sides[i])
-#     curr += l
-    
-# plt.show()
-# # %%
-# brdr = []
-# for i in sides:
-#     for j in i:
-#         brdr.append(j)
-# plt.plot(brdr)
