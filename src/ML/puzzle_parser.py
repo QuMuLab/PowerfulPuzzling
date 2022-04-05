@@ -1,14 +1,17 @@
+import tensorflow as tf
+
 # Get the puzzle piece objects
 from cmath import log
 from puzzle_piece import PuzzlePiece
 
 import os
 import sys
+import cv2
 import random
-import math
 import numpy as np
 import skimage.io
 import matplotlib.pyplot as plt
+from scipy.ndimage import filters
 from imgaug import augmenters as iaa
 from puzzle_dataset import PuzzleDataset
 
@@ -38,10 +41,33 @@ class PuzzleConfig(Config):
 
     # We use a GPU with 12GB memory, which can fit two images.
     # Adjust down if you use a smaller GPU.
-    IMAGES_PER_GPU = 2
+    IMAGES_PER_GPU = 1
 
-    # Uncomment to train on 8 GPUs (default is 1)
-    # GPU_COUNT = 8
+    """Changed Config Values"""
+    """ ---- """
+    # # Number of training and validation steps per epoch
+    # STEPS_PER_EPOCH = 100 // IMAGES_PER_GPU
+    # VALIDATION_STEPS = 28 // IMAGES_PER_GPU
+
+    # # Don't exclude based on confidence. Since we have two classes
+    # # then 0.5 is the minimum anyway as it picks between island and BG
+    # DETECTION_MIN_CONFIDENCE = 0
+
+    # # If enabled, resizes instance masks to a smaller size to reduce
+    # # memory load. Recommended when using high-resolution images.
+    # USE_MINI_MASK = True
+    # MINI_MASK_SHAPE = (56, 56)  # (height, width) of the mini-mask
+
+    # # Adjust the mask shape for higher resolution masks
+    # MASK_SHAPE = [56, 56]
+
+    # # Lower the learning rate a bit
+    # LEARNING_RATE = 0.0008
+
+    # # # Have to decrease these to avoid running out of RAM
+    # RPN_TRAIN_ANCHORS_PER_IMAGE = 200
+    # TRAIN_ROIS_PER_IMAGE = 100
+    """ ---- """
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 1
@@ -58,6 +84,9 @@ class InferencePuzzleConfig(PuzzleConfig):
     GPU_COUNT = 1
     NUM_CLASSES = 1 + 1 # custom object + background
     DETECTION_MAX_INSTANCES = 500
+
+    # Adjust the mask shape for higher resolution masks
+    # MASK_SHAPE = [56, 56]
 
 
 class PuzzleParserMode:
@@ -108,43 +137,6 @@ class PuzzleParser:
     def display_config(self):
         self.__config.display()
 
-    def get_best_model(self):
-        # Lady load glob
-        from glob import glob
-
-        # Look at each file in the logs dir
-        log_directories = glob(f"{self.__log_dir}/*")
-
-        # If there are no files raise value error
-        # If there is only one file then return that file
-        if len(log_directories) == 0:
-            raise ValueError("No model logs present!")
-        elif len(log_directories) == 1:
-            return glob(f"{log_directories[0]}/*.h5")[0]
-
-        # Lazy load tensorboard's event accumulator
-        from tensorboard.backend.event_processing import event_accumulator
-
-        # Loop through each file and file the best one
-        best_file = None
-        for dir in log_directories:
-            # Grab each file from the log
-            weights = glob(f"{dir}/*.h5")[0]
-            tb_log_file = glob(f"{dir}/*events.out.tfevents*")[0]
-
-            # Check the validation loss
-            ea = event_accumulator.EventAccumulator(tb_log_file, size_guidance={event_accumulator.SCALARS: 0})
-            ea.Reload()
-
-            # Get validation loss
-            val_loss = ea.Scalars('val_loss')[-1].value
-
-            # Update best weights
-            if best_file is None or val_loss < best_file[0]:
-                best_file = (val_loss, weights)
-
-        return best_file[1]
-
     def train_model(self, island_dir, epochs=30, layers='heads', callbacks=[]):
         """[summary]
 
@@ -174,6 +166,10 @@ class PuzzleParser:
         iaa.GaussianBlur(sigma=(0.0, 5.0))
     ])
 
+        # Add our csv logger callback
+        csv_logger = tf.keras.callbacks.CSVLogger(f"{self.__log_dir}/train_log.csv", separator=",", append=True)
+        callbacks.append(csv_logger)
+
         # Since we're using a very small dataset, and starting from
         # COCO trained weights, we don't need to train too long. Also,
         # no need to train all layers, just the heads should do it.
@@ -191,7 +187,7 @@ class PuzzleParser:
         # Make sure we have names
         assert self.__class_names is not None, "Must call set_class_names(names) to provide names for the model before running inference or training."
 
-        # Load a random image from the images folder
+        # Load a image
         image = skimage.io.imread(image_path)
         if(image.shape[-1] == 4):
             image = image[:,:,:3]
@@ -202,6 +198,10 @@ class PuzzleParser:
         # Visualize results
         r = results[0]
         visualize.display_instances(image, r['rois'], r['masks'], r['class_ids'], self.__class_names, r['scores'])
+
+    def detect(self, input_image: str):
+        # Run detection
+        return self.__model.detect([input_image], verbose=1)
 
     def extract_puzzle_pieces(self, img_path: str, max_pieces:int=None):
         """[summary]
@@ -215,7 +215,52 @@ class PuzzleParser:
         """
         # Make sure we have names
         assert self.__class_names is not None, "Must call set_class_names(names) to provide names for the model before running inference or training."
-        raise NotImplementedError()
+
+        # Run a detection on the image
+        # Load a image
+        image = skimage.io.imread(img_path)
+        if(image.shape[-1] == 4):
+            image = image[:,:,:3]
+
+        # Run detection
+        results = self.__model.detect([image], verbose=1)
+
+        # Get our masks
+        masks = results['masks']
+        masks = masks.astype(np.uint8)
+
+        # Extract each contour
+        contours = []
+        for i in range(masks.shape[-1]):
+            # Grab the mask and put in range (0-255)
+            puzzle = masks[:, :, i] * 255
+
+            # Run adaptive threshold
+            puzzle = cv2.GaussianBlur(puzzle, (5,5), 1)
+
+            # Find all borders on the mask
+            cntrs, _ = cv2.findContours(puzzle, 0, 1)
+
+            # Add each contour to our list
+            contours.append(cntrs)
+
+        return contours
+
+
+    def build_rpn_targets(self, image, gt_class_id, gt_bbox):
+      return modellib.build_rpn_targets(image.shape, self.__model.anchors, gt_class_id, gt_bbox, self.__model.config)
+
+    def get_anchors(self):
+      return self.__model.anchors
+
+    def get_config(self):
+      return self.__config
+
+    def get_keras_model(self):
+      return self.__model.keras_model
+
+    def get_model(self):
+      return self.__model
 
     def visualize(self, island_dir):
         config = PuzzleConfig()
@@ -256,12 +301,11 @@ class PuzzleParser:
         visualize.display_instances(image, bbox, mask, class_ids, dataset.class_names)
 
 
+# Load up a new model
+model = PuzzleParser("", PuzzleParserMode.INFERENCE)
+
+# Set the class names of the model
 class_names = ["BG", "pp"]
-
-pp = PuzzleParser("src/ML/logs", PuzzleParserMode.TRAIN)
-# pp.load_weights("/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/src/ML/mask_rcnn_coco.h5")
-
-pp.load_weights("/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/src/ML/mask_rcnn_coco.h5", exclude=[ "mrcnn_class_logits", "mrcnn_bbox_fc", "mrcnn_bbox", "mrcnn_mask"])
-pp.set_class_names(class_names)
-# pp.visualize("/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/dataset/mask_rcnn")
-pp.train_model("/Users/martingleave/Desktop/School Work/UNIVERSITY/fourth_year/second_sem/CISC499/PowerfulPuzzling/dataset/mask_rcnn", 3)
+model.set_class_names(class_names)
+model.load_weights("src/ML/(MiniMask, BaseResolution)_epoch_17_val_loss_0.41_.h5")
+model.display_test("dataset/starry_night/edge_case.JPG")
