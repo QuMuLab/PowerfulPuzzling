@@ -1,156 +1,48 @@
 """This is where we will call the functions from the powerful pluzzling algo"""
 #%%
-from cmath import inf
-from src.app import get_hint, complete_puzzle
 from src.border_matching import Matcher
-from src.segmentation.FIXME import get_image_and_border
-from src.utils import rotate_points, points2img
+from src.segmentation.get_border import get_image_and_border
+from src.utils import border_ops, display
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import numpy as np
-from typing import Tuple
 import cv2 as cv
-from dtw import dtw, rabinerJuangStepPattern
-
-# %%
+#%%
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
-m = Matcher(img)
+
+img_matcher = Matcher(img, borders=borders, kmeans=False)
+
+#%% getting matches
+matches = img_matcher.get_matches(weighting=[2,1])  
+
+# %% displaying top 3 matches on the original image:
+# displaying the original image
 plt.imshow(img)
+n_display = 6
+
+# displaying the border contours
+for match_val, (i,j), match_segs in matches[:n_display]:
+    display.display_border(borders[i], color='b')
+    display.display_border(borders[j], color='b')
+
+
+for match_val, (i,j), match_segs in matches[:n_display]:
+    # displaying the segment of the border contours:
+    display.display_border(match_segs[0], c='y')
+    display.display_border(match_segs[1], c='y')
+    
+    
+    # drawing a line between the two points:
+    p1 = match_segs[0][0]
+    p2 = match_segs[1][0]
+    
+    plt.plot([p1[0], p2[0]], [p1[1], p2[1]], c='r')
+    
+    # getting midpoint between p1 and p2:
+    p3 = [(p1[0]+p2[0])/2, (p1[1]+p2[1])/2]
+    
+    # adding a label to the line:
+    plt.text(p3[0], p3[1], str(round(match_val,3)), color='darkgreen')
+    
 plt.show()
 
 # %%
-def display_border(border, **kwargs):
-    print(border.shape)
-    n = border.shape[0]
-    b = border.reshape(n, 2)
-    plt.scatter(b[:,0], b[:,1], **kwargs)
-
-#%% Pieces 0 and 2 can connect on one side:
-b1 = borders[0]
-b2 = borders[2]
-b3 = borders[5] # non-matching piece
-# display_border(b1)
-# display_border(b2)
-display_border(b3)
-plt.show()
-
-# %% Getting appropriate segments:
-p1 = 1420
-p2 = 2320
-p3 = 3540
-n = 450
-b1_s = b1[p1:p1+n]
-b2_s = b2[p2:p2+n]
-b3_s = b3[p3:p3+n]
-# display_border(borders[1])
-# display_border(b3_s)
-
-#%% border unrolling by getting angles:
-def unroll(brdr, sampling_rate=25):
-    # Using the Law of cosines for SSS case to determine angle 0'
-    # Then using slopes of lines formed by P1-P2 and P3-P2 to determine direction.
-    #       a
-    # P1 - - - P2 . . . .
-    #         0  \  0'  b
-    #     c       \
-    #              P3
-    # Angle 0 is:
-    #   cos^-1((a^2 + b^2 - c^2) / 2ab)
-    # Which we use to get 0' (the deviation from main line/heading):
-    #   0' = 180 - 0
-    #
-    # We also need an adjustment term for the next step of determining direction.
-    # This is because by the nature of arccos, if angle is greater than 90 deg 
-    # then the sign will flip so this ensures that it stays the same sign:
-    #   adj = 90 - 0'
-    #   90 - adj = 180 - 0
-    #   adj = 0 - 90
-    #
-    # Now we can determine if we are going left or right with the slope of the 
-    # lines of P1-P2 and P2-P3 and the adj term:
-    #     sign(((m1 - m2) / (1 + m1*m2)) * adj)
-    #
-    # See more detail and example here: https://www.desmos.com/calculator/uo4dk85igo
-    
-    angles = np.empty(shape=(brdr.shape[0]//sampling_rate - 1)) #TODO: optimize this by preallocating
-    with np.errstate(divide='ignore', invalid='ignore'):
-        idx = 0
-        for i in range(0, brdr.shape[0]-sampling_rate, sampling_rate): # TODO: overlapping?
-            p1 = brdr[i]
-            p2 = brdr[i+sampling_rate//2]
-            p3 = brdr[i+sampling_rate]
-            # calculating euclidian distances (l2 norm):
-            a = np.linalg.norm(p1-p2)
-            b = np.linalg.norm(p2-p3)
-            c = np.linalg.norm(p3-p1)
-            # Using law of cosines to get angle 0 in radians
-            angle = np.arccos((a**2 + b**2 - c**2) / (-2*a*b)) 
-            
-            # Determining if right or left turn (assuming clockwise rotation):
-            m1 = (p2[1] - p1[1]) / (p2[0] - p1[0])
-            m2 = (p3[1] - p2[1]) / (p3[0] - p2[0])
-            
-            if m1!=inf and m2!=inf and m1!=0 and m2!=0: # ignoring sign adjustment when perfectly horizontal or vertical
-                # 1.57079632679 ~ π/2 = 90 deg
-                adj = angle - np.pi/2
-                # Theoretically 0 will never happen (b/c pi is irrational) but just to make sure:
-                if adj == 0 : adj = 1
-                sgn = np.sign(((m1 - m2) / (1 + m1*m2)) * adj)
-                angle *= sgn
-            
-            angles[idx] = angle
-            idx += 1
-    return angles      
-        
-# %% unrolling by extracting angles of 3 points
-display_border(b1_s)
-plt.show()
-display_border(b2_s)
-plt.show()
-
-b1_s_ur = unroll(b1_s[:,0])
-b2_s_ur = unroll(b2_s[:,0])
-plt.plot(b1_s_ur)
-plt.plot([-x for x in b2_s_ur])
-
-
-#%%
-
-#%%
-# rot = rotate_points(b3[:,0])
-# obs = b3[:,0][:,0]
-
-# # %%
-# bimg = points2img(b3[:,0])
-
-# #%% border unrolling
-
-# # n = num of observations:
-# n = 4 # max is 360 -> observe for each 1 deg rotation
-# step = 360//n
-# sides = []
-# for i in range(0, 360, step):
-#     pts = np.array(rotate_points(b3[:,0], deg=i), dtype=int)
-#     pt_img = points2img(pts)
-#     unrolled = []
-#     for j in range(pt_img.shape[0]):
-#         obs_ps = np.where(pt_img[j] == 1)[0]
-#         if obs_ps.shape[0] > 0:
-#             unrolled.append(obs_ps[0])
-#     sides.append(unrolled)
-    
-# # %% displaying each side:
-# curr = 0
-# for i in range(n):
-#     l = len(sides[i])
-#     plt.scatter(list(range(curr, l+curr)), sides[i])
-#     curr += l
-    
-# plt.show()
-# # %%
-# brdr = []
-# for i in sides:
-#     for j in i:
-#         brdr.append(j)
-# plt.plot(brdr)
-

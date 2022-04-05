@@ -6,39 +6,82 @@ This script just contains helper functions that might be useful for border opera
 from typing import Tuple
 import numpy as np
 from cmath import inf
+import matplotlib.pyplot as plt
 
-def determine_shape(b_angles:np.array, cutoff=0.1) -> int:
+def get_mse(border_segment:np.array) -> float:
     """
-    Determines the high level border shape based off of the ANGLES of an unrolled border.
+    Calculates the mean squared error from a list of y,x points after performing a linear regression.
 
-    Possible shapes are:
-            1) Concave (\\\/)\n
-            0) Linear (--)\n
-           -1) Convex (/\\\)\n
-           
     Args:
-        b_angles (np.array): the unrolled border angles
-        cutoff (float, optional): _description_. Defaults to 0.01.
+        border_segment (np.array): The border segment shape (n,2)
 
     Returns:
-        int: The determined shape (1,0,-1)
+        float: The MSE.
     """
-    m = np.mean(b_angles)
+    x = border_segment[:,0]
+    y = border_segment[:,1]
     
-    if m > cutoff:
-        shape = 1
-    elif m < cutoff:
-        shape = -1
-    else:
-        shape = 0
+    # Trying both axes to get the smallest MSE:
+    # This solves the issue with vertical lines causing much higher MSEs
     
-    return shape
+    # x axis as the horizontal axis:
+    m, b = np.polyfit(x, y, 1)
+    y_fit = m*x + b
+    mse_x = np.mean((y - y_fit)**2)
+    
+    # y axis as the horizontal axis:
+    m, b = np.polyfit(y, x, 1)
+    x_fit = m*y + b
+    mse_y = np.mean((x - x_fit)**2)
+    
+    return min(mse_x, mse_y)
 
-def get_poly_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[float]]:
+def get_orthoganol_colors(img:np.array, border:np.array, dist=10, sampling_rate=5) -> Tuple[np.array, np.array]:
+    """Samples the colors orthogonal to the contour segment.
+    
+    Using this formula we can get colors within the border that are x distance way from it.
+    https://www.desmos.com/calculator/fpr5vp82vd
+
+    Args:
+        img (np.array): The image to sample colors from in yx format     
+        border (np.array): the contour segment for the piece.
+        
+        dist (int, optional): How many pixels away from the border to sample from. 
+                Defaults to 5.
+        sampling_rate (int, optional): How many pixels to skip between sampling.
+        
+    Returns:
+        Tuple[np.array, np.array]: The sampled colors and their coordinates in xy format.
+    """
+    assert sampling_rate >= 2, "sampling rate must be greater than or equal to 2."
+    
+    sc = border
+    colors = np.empty((len(border)//sampling_rate, 3), dtype=np.uint8)
+    points = np.empty((len(border)//sampling_rate, 2))
+    i=0
+    for n in range(0,len(border)-sampling_rate, sampling_rate):
+        (x,y) = border[n]
+        # This point is used to determine where the orthoganol points lie:
+        (x1,y1) = border[n+sampling_rate]
+        h, w = y1-y, x1-x
+        hypo = np.sqrt(h**2 + w**2) # getting hypo to normalize the distance from border
+        
+        # The sampled point that is `dist` away from the border:
+        p = (int(x + dist*h/hypo), 
+             int(y - dist*w/hypo))
+        
+        # Getting inner points when going clockwise around boundary
+        colors[i] = (img[p[1],p[0]]) # image is in (yx) format
+        points[i] = p
+        i+=1
+        
+    return colors, points
+
+def get_poly_shape(border_segment:np.array, cutoff=0.015) -> Tuple[int, Tuple[float]]:
     """
     High-level determination of the shape of an border segment using np.polyfit.
     
-    NOTE: The border must be a true unrolled border (not angles)
+    NOTE: The border must be the unrolled border
     
     Possible shapes are:
             1) Concave (\\\/)\n
@@ -47,12 +90,15 @@ def get_poly_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[flo
     
     This is determined by looking at the constant in a 2nd order polynomial fitted to the 
     points and seeing if it is - (convex), + (concave), or ~0 (linear).
+    
+    The cutoff is used to determine if the shape is linear or not. Its default is 0.01 
+    which was determined to work with a sampling rate of 50 (from the unrolling function).
 
     Args:
         border_segment (np.array): The border segment shape must be (x,) 
                 where x is the number of points making up the border.
         cutoff (float, optional): The cutoff for classification (e.g.: a cutoff of 1 
-                means linear is anything between -1 and 1 coeff). Defaults to 0.0 
+                means linear is anything between -1 and 1 coeff). Defaults to 0.006
                 (no linear aspect).
         
     Returns:
@@ -62,15 +108,17 @@ def get_poly_shape(border_segment:np.array, cutoff=0.01) -> Tuple[int, Tuple[flo
     References:
         - np.polyFit: https://numpy.org/doc/stable/reference/generated/numpy.polyfit.html
     """
+    assert len(border_segment.shape) == 1, "Passed in border must be unrolled border!"
+    
     # poly is a 3-tuple of the coeffs a,b, and c: (a*x^2 + b*x + c)
     poly = np.polyfit(x=list(range(border_segment.shape[0])), y=border_segment, deg=2)
-            
-    if poly[0] > cutoff:
-        shape = 1
-    elif poly[0] < cutoff:
-        shape = -1
-    else:
+    
+    if abs(poly[0]) < cutoff: # abs value so that we only have to check once
         shape = 0
+    elif poly[0] <= -cutoff:
+        shape = -1
+    else: # poly[0] > cutoff
+        shape = 1
     
     return shape, poly
 
@@ -229,42 +277,3 @@ def rotate_points(points:np.array, deg=1, inplace=True) -> np.array:
     else:
         rotated = points@rot_mat
     return rotated
-
-#Alternate border unrolling: # TODO: delete when testing is done.
-
-# rot = rotate_points(b3[:,0])
-# obs = b3[:,0][:,0]
-
-# # %%
-# bimg = points2img(b3[:,0])
-
-#border unrolling
-
-# # n = num of observations:
-# n = 4 # max is 360 -> observe for each 1 deg rotation
-# step = 360//n
-# sides = []
-# for i in range(0, 360, step):
-#     pts = np.array(rotate_points(b3[:,0], deg=i), dtype=int)
-#     pt_img = points2img(pts)
-#     unrolled = []
-#     for j in range(pt_img.shape[0]):
-#         obs_ps = np.where(pt_img[j] == 1)[0]
-#         if obs_ps.shape[0] > 0:
-#             unrolled.append(obs_ps[0])
-#     sides.append(unrolled)
-    
-# # %% displaying each side:
-# curr = 0
-# for i in range(n):
-#     l = len(sides[i])
-#     plt.scatter(list(range(curr, l+curr)), sides[i])
-#     curr += l
-    
-# plt.show()
-# # %%
-# brdr = []
-# for i in sides:
-#     for j in i:
-#         brdr.append(j)
-# plt.plot(brdr)

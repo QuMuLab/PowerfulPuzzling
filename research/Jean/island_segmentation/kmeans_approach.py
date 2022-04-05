@@ -10,17 +10,22 @@ path_to_image = 'C:\\Users\\Jean\\Desktop\\Undergrad\\2022 Winter\\CISC 499\\Pow
 
 # %%
 img = np.array(Image.open(path_to_image).convert('RGB'))
+ 
+# blurred to reduce noise
+hsv_puzzle = cv2.cvtColor(cv2.medianBlur(img, ksize=61), cv2.COLOR_RGB2HSV)
+
+# %%
 vectorized = img.reshape((-1,3))
-kmeans = KMeans(n_clusters=2).fit(vectorized)
+kmeans = KMeans(n_clusters=5).fit(vectorized)
 centers = np.uint8(kmeans.cluster_centers_)
-segmented_data = centers[kmeans.labels_.flatten()]
+segmented_data = centers[kmeans.labels_]
  
 # %%
 segmented_image = segmented_data.reshape((img.shape))
 plt.imshow(segmented_image)
 plt.suptitle("segmented")
 plt.figure()
-#%%
+# %%
 
 img = cv2.cvtColor(segmented_image, cv2.COLOR_RGBA2GRAY) # grayscaling
 
