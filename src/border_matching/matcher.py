@@ -33,7 +33,7 @@ class Matcher:
         self.border_angles = [border_ops.unroll_border(border) for border in self.border_contours]
         # get_border_segments returns a list of tuples containing the unrolled segment values and the corresponding y,x values
         # for each segment (from the original image)
-        self.border_segments = [segment_border.get_border_segments(b_angles, b, gamma=0.75, peak_width=2) for b_angles, b in zip(self.border_angles, self.border_contours)]
+        self.border_segments = [segment_border.get_border_segments(b_angles, b) for b_angles, b in zip(self.border_angles, self.border_contours)]
 
         if kmeans:
             assert n_clusters > 0, "ERROR: n_clusters must be greater than 0."
@@ -85,7 +85,6 @@ class Matcher:
                     # displaying the border contours
                     display.display_border(contours[i], c='b')
                     display.display_border(contours[j], c='b')
-
                     # displaying the segment of the border contours:
                     display.display_border(seg_match_points[0], c='y')
                     display.display_border(seg_match_points[1], c='y')
@@ -97,7 +96,7 @@ class Matcher:
         matches.sort(key=lambda x: x[0]) # Sort by match_val
         return matches
 
-    def get_matching_segments(self, b1_info:tuple, b2_info:tuple, mse_cutoff=5.0, weighting=[1,1]):
+    def get_matching_segments(self, b1_info:tuple, b2_info:tuple, mse_cutoff=5.0, weighting=[1,1]) -> Tuple[Tuple[int,int], float, Tuple[np.array, np.array]]:
         """
         Gets the best matching segments from two contours. This is done by shape and then
         validated with color.
@@ -119,7 +118,6 @@ class Matcher:
         # Getting the locations of where the jigsaw segments are:
         seg_vals1, seg_points1 = b1_info
         seg_vals2, seg_points2 = b2_info
-
         # getting poly shape and MSE beforehand to speed up matching by avoiding redundant computations
         # Value from polyshape will be +1 or -1 value depending on if concave or convex
         seg_shapes1 = [border_ops.get_poly_shape(s1, cutoff=0.0)[0] for s1 in seg_vals1] # cutoff is zero because MSE is better at determing linearity
@@ -127,7 +125,6 @@ class Matcher:
 
         seg_mse1 = [border_ops.get_mse(s1) for s1 in seg_points1]
         seg_mse2 = [border_ops.get_mse(s2) for s2 in seg_points2]
-
         # Getting the best matching segments from the two borders:
         # matches = []
         best_match_val = inf
@@ -138,7 +135,6 @@ class Matcher:
             for seg2_i, seg2 in enumerate(seg_vals2):
                 shape2 = seg_shapes2[seg2_i]
                 mse2 = seg_mse2[seg2_i]
-
                 # Check to make sure it is not linear and are inverted shapes (convex matching with concave)
                 if mse1 > mse_cutoff and mse2 > mse_cutoff and shape1 == -shape2:
                     # Low level shape match first:
@@ -162,7 +158,7 @@ class Matcher:
         return best_match_i, best_match_val, (seg_points1[best_match_i[0]], seg_points2[best_match_i[1]])
 
     def match_color_distance(self, seg1:np.array, seg2:np.array, step_pattern="symmetric2",
-                         distance_only=True, display=False):
+                         distance_only=True, display=False) -> Tuple[float, float]:
         """
         Matching validation based on colors along the border segment.
         The method used here is a cummulative DTW approach (DTWi from
@@ -209,7 +205,6 @@ class Matcher:
             print('Hue')
             DTW_h.plot(type="threeway")
             DTW_h.plot(type="twoway")
-
             print('Saturation')
             DTW_s.plot(type="threeway")
             DTW_s.plot(type="twoway")
@@ -222,7 +217,7 @@ class Matcher:
 
     @staticmethod
     def match_shape_distance(seg1:np.array, seg2:np.array, step_pattern="symmetric2",
-                         distance_only=True, display=False):
+                         distance_only=True, display=False) -> Tuple[float, float]:
         """
         This uses Dynamic Time Warping (DTW) and returns the normalized distance
         value, to determine how well two segments fit with each other.

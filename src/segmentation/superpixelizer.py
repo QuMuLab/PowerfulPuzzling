@@ -43,7 +43,7 @@ class SuperPixelizer(object):
         # Load up the image and remove the alpha channel
         from skimage.transform import rescale, resize, downscale_local_mean
         image = img_as_float(io.imread(image_path))
-        image = rescale(image, self.scale, anti_aliasing=False)
+        image = rescale(image, self.scale, anti_aliasing=False, channel_axis=2)
         if(image.shape[-1] == 4):
             image = image[:,:,:3]
 
@@ -59,10 +59,10 @@ class SuperPixelizer(object):
         image = self.__load_image(image_path)
         return slic(image,n_segments=self.n_segments,
                         sigma=self.sigma,
-                        compactness=self.compactness)
-                        # max_num_iter=self.max_num_iter,
-                        # channel_axis=self.channel_axis,
-                        # convert2lab=True)
+                        compactness=self.compactness,
+                        max_num_iter=self.max_num_iter,
+                        channel_axis=self.channel_axis,
+                        convert2lab=True)
 
     def combine_superpixels(self, segments, label_a, label_b) -> np.array:
         """
@@ -188,13 +188,13 @@ class SuperPixelizer(object):
 
 
 import time
-impath = "dataset/starry_night/4_fc.JPG"
-s = SuperPixelizer(100, max_num_iter=100, scale=0.5)
+impath = "myimage.png"
+s = SuperPixelizer(1000, max_num_iter=100, scale=0.5)
 start_time = time.time()
 segs = s.extract_superpixels(impath)
 print(time.time() - start_time)
 start_time = time.time()
-labels = s.cluster(impath, segs, n_clusters=2, plot=False)
+labels = s.cluster(impath, segs, n_clusters=2, plot=True)
 print(time.time() - start_time)
 start_time = time.time()
 # loop over the unique segment values
@@ -210,7 +210,7 @@ for (i, segVal) in enumerate(np.unique(segs)):
 labels = [0] + [x for x in labels if x > 0]
 unique = np.unique(segs)
 print(time.time() - start_time)
-# s.plot_graph(segs, impath)
+s.plot_graph(segs, impath)
 
 s.plot_segments(impath, segs)
 plt.show()

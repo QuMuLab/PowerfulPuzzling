@@ -7,7 +7,7 @@ import cv2
 
 from fcmeans import FCM
 
-img = cv2.imread('dataset/starry_night/edge_case.JPG',
+img = cv2.imread('C:\\Users\\Jean\\Desktop\\Undergrad\\2022 Winter\\CISC 499\\PowerfulPuzzling\\dataset\\starry_night\\edge_case.JPG',
         cv2.IMREAD_UNCHANGED)
 vectorized = img.reshape((-1,3))
 
