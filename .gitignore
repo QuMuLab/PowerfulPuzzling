@@ -4,7 +4,10 @@ Jean_research/obj.json
 Jean_research/obj2.json
 Jean_research/obj2a.json
 dataset
+Report
 *png
 *jpg
+*JPG
 *.pyc
 *.h5
+*.mp4
