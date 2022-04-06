@@ -6,13 +6,40 @@ from src.utils import border_ops, display
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2 as cv
+
+# Import deep learning model
+from src.ML.puzzle_parser import PuzzleParser, PuzzleParserMode
+
 #%%
-img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
+# Create our image segmentation model
+model = PuzzleParser(mode=PuzzleParserMode.INFERENCE)
+
+# Set the class names of the model
+class_names = ["BG", "pp"]
+model.set_class_names(class_names)
+
+# Load the model weights
+model.load_weights("src/ML/(MiniMask, BaseResolution)_epoch_17_val_loss_0.41_.h5")
+
+# Extract the puzzle pieces from the image
+img, borders = model.extract_puzzle_pieces("dataset/mask_rcnn/train/PJwEENHIVQNQuYieLOPO_10241.png")
+
+
+# Add them all up
+import cv2
+final = np.zeros(img.shape[:2])
+for c in borders:
+    cv2.drawContours(final, c, -1, 255, 5)
+plt.imshow(final)
+plt.show()
+
+# img, borders = get_image_and_border('dataset/starry_night/edge_case.JPG')
+# print(type(borders), type(borders[0]))
+# print(borders)
 
 img_matcher = Matcher(img, borders=borders, kmeans=False)
-
 #%% getting matches
-matches = img_matcher.get_matches(weighting=[2,1])  
+matches = img_matcher.get_matches(weighting=[2,1])
 
 # %% displaying top 3 matches on the original image:
 # displaying the original image
@@ -29,20 +56,20 @@ for match_val, (i,j), match_segs in matches[:n_display]:
     # displaying the segment of the border contours:
     display.display_border(match_segs[0], c='y')
     display.display_border(match_segs[1], c='y')
-    
-    
+
+
     # drawing a line between the two points:
     p1 = match_segs[0][0]
     p2 = match_segs[1][0]
-    
+
     plt.plot([p1[0], p2[0]], [p1[1], p2[1]], c='r')
-    
+
     # getting midpoint between p1 and p2:
     p3 = [(p1[0]+p2[0])/2, (p1[1]+p2[1])/2]
-    
+
     # adding a label to the line:
     plt.text(p3[0], p3[1], str(round(match_val,3)), color='darkgreen')
-    
+
 plt.show()
 
 # %%

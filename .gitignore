@@ -7,3 +7,4 @@ dataset
 *png
 *jpg
 *.pyc
+*.h5

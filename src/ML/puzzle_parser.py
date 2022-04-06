@@ -2,7 +2,6 @@ import tensorflow as tf
 
 # Get the puzzle piece objects
 from cmath import log
-from puzzle_piece import PuzzlePiece
 
 import os
 import sys
@@ -13,7 +12,10 @@ import skimage.io
 import matplotlib.pyplot as plt
 from scipy.ndimage import filters
 from imgaug import augmenters as iaa
-from puzzle_dataset import PuzzleDataset
+try:
+    from src.ML.puzzle_dataset import PuzzleDataset
+except ImportError:
+    from puzzle_dataset import PuzzleDataset
 
 # Setup the backend as tensorflow so we are not using theano
 os.environ['KERAS_BACKEND']='tensorflow'
@@ -23,10 +25,18 @@ ROOT_DIR = os.path.abspath("../")
 
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
-from mrcnn import utils
-import mrcnn.model as modellib
-from mrcnn import visualize
-from mrcnn.config import Config
+
+try:
+    from src.ML.mrcnn import utils
+    import src.ML.mrcnn.model as modellib
+    from src.ML.mrcnn import visualize
+    from src.ML.mrcnn.config import Config
+except ImportError:
+    from mrcnn import utils
+    import mrcnn.model as modellib
+    from mrcnn import visualize
+    from mrcnn.config import Config
+
 
 
 class PuzzleConfig(Config):
@@ -100,9 +110,12 @@ class PuzzleParser:
     The API for finding puzzle peices.
     """
 
-    def __init__(self, log_dir: str, mode: str) -> None:
+    def __init__(self, log_dir: str = None, mode: str = PuzzleParserMode.INFERENCE) -> None:
+        # Make sure if there are no logs that we are in inference mode
+        assert log_dir is None and mode == PuzzleParserMode.TRAIN or mode == PuzzleParserMode.INFERENCE, "Must provide a log directory if not in inference mode."
+
         # Save the log directory
-        self.__log_dir = log_dir
+        self.__log_dir = log_dir if log_dir is not None else ""
 
         # Set the mode and config
         mode = mode.lower()
@@ -203,7 +216,7 @@ class PuzzleParser:
         # Run detection
         return self.__model.detect([input_image], verbose=1)
 
-    def extract_puzzle_pieces(self, img_path: str, max_pieces:int=None):
+    def extract_puzzle_pieces(self, img_path: str):
         """[summary]
 
         Args:
@@ -223,7 +236,7 @@ class PuzzleParser:
             image = image[:,:,:3]
 
         # Run detection
-        results = self.__model.detect([image], verbose=1)
+        results = self.__model.detect([image], verbose=1)[0]
 
         # Get our masks
         masks = results['masks']
@@ -240,11 +253,13 @@ class PuzzleParser:
 
             # Find all borders on the mask
             cntrs, _ = cv2.findContours(puzzle, 0, 1)
+            cntrs = np.array(cntrs[0])
 
             # Add each contour to our list
+            print("Contour shape:", cntrs.shape)
             contours.append(cntrs)
 
-        return contours
+        return image, contours
 
 
     def build_rpn_targets(self, image, gt_class_id, gt_bbox):
@@ -301,11 +316,12 @@ class PuzzleParser:
         visualize.display_instances(image, bbox, mask, class_ids, dataset.class_names)
 
 
-# Load up a new model
-model = PuzzleParser("", PuzzleParserMode.INFERENCE)
+if __name__ == "__main__":
+    # Load up a new model
+    model = PuzzleParser("", PuzzleParserMode.INFERENCE)
 
-# Set the class names of the model
-class_names = ["BG", "pp"]
-model.set_class_names(class_names)
-model.load_weights("src/ML/(MiniMask, BaseResolution)_epoch_17_val_loss_0.41_.h5")
-model.display_test("dataset/starry_night/edge_case.JPG")
+    # Set the class names of the model
+    class_names = ["BG", "pp"]
+    model.set_class_names(class_names)
+    model.load_weights("src/ML/(MiniMask, BaseResolution)_epoch_17_val_loss_0.41_.h5")
+    model.display_test("dataset/starry_night/edge_case.JPG")
