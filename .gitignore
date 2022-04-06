@@ -9,5 +9,5 @@ Report
 *jpg
 *JPG
 *.pyc
-*.h5
-*.mp4
+*h5
+*mp4
