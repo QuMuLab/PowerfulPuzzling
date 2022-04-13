@@ -9,41 +9,51 @@ from research.Jean.matching.util_functions import getting_orthoganol_colors
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
 img_matcher = Matcher(img, borders, kmeans=False)
 
+#%% unrolling border and displaying it:
+# b = borders[0][:,0]
+# ur_b25 = border_ops.unroll_border(b, sampling_rate=25)
+# ur_b10 = border_ops.unroll_border(b, sampling_rate=10)
+# # plt.plot(ur_b25)
+# plt.plot(ur_b10)
+# plt.plot((0, len(ur_b10)), (0,0), c='b')
+# plt.show()
+
 #%%
 # colors, points = getting_orthoganol_colors(img, borders[0][:,0], dist=10)
-colors, points = border_ops.get_orthoganol_colors(img, borders[0][:,0], dist=10)
-# displaying the sampled colors 
-plt.imshow(img)
-for x,y,c in zip(points[:,0], points[:,1], colors):
-    plt.scatter(x, y, c=[c/255], edgecolors= "r")
-plt.show()
-exit()
+# colors, points = border_ops.get_orthoganol_colors(img, borders[0][:,0], dist=10)
+# # displaying the sampled colors 
+# plt.imshow(img)
+# for x,y,c in zip(points[:,0], points[:,1], colors):
+#     plt.scatter(x, y, c=[c/255], edgecolors= "r")
+# plt.show()
+# exit()
 
 
 #%% Pieces 0 and 2 can connect on one side:
-b1 = borders[0]
+b1 = borders[1][:,0]
 sampling_rate = 25
 THRESHOLD = 0.104
-ur_b1 = border_ops.unroll_border(b1[:,0], sampling_rate=sampling_rate)
-
-seg_is, seg_vals = get_border_segments(ur_b1, b1, display_borders=True, threshold=0.1, gamma=0.75, 
+ur_b1 = border_ops.unroll_border(b1, sampling_rate=sampling_rate)
+plt.plot((0, len(ur_b1)), (0,0), c='b')
+plt.plot(ur_b1)
+plt.figure()
+seg_vals, seg_points = get_border_segments(ur_b1, b1, display_borders=True, threshold=0.1, gamma=0.75, 
                                        peak_width=2, segment_padding=2)
 # NOTE: for border 1 (longest border) the best config is (0.08, 0.8, 1.5, 2) 
 # for (threshold, gamma, peak_width, segment_padding) respectively
 
 b = b1
 
-for i, s in enumerate(seg_is):
-    sb = get_border_vals(s[0]*sampling_rate, s[1]*sampling_rate, b[:,0])
-    mse = border_ops.get_mse(sb)
+for i, s in enumerate(seg_points):
+    mse = border_ops.get_mse(s)
     if mse > 5: # only displaying non line segments
-        print(border_ops.get_poly_shape(seg_vals[i], cutoff=0))
         display.display_border(b)
-        display.display_border(sb)
+        display.display_border(s)
         plt.title("mse = "+str(mse))
         plt.show() 
 
 
+# exit()
 
 # running the matcher:
 #%% Running matcher for two known matched pieces:

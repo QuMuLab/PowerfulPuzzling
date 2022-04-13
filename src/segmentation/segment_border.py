@@ -66,7 +66,7 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
         # Displaying the ratios plot:
         plt.figure(figsize=(10,4))
         plt.plot(ratios)
-        plt.title('RATIOS')
+        plt.title('Line/Non-Line Ratio')
         plt.plot(peaks, ratios[peaks], 'x')
         plt.xticks(np.arange(0, len(ur_b), 5))
         plt.show()

@@ -1,4 +1,5 @@
 from typing import Tuple
+from matplotlib.style import use
 import numpy as np
 from cmath import inf
 import matplotlib.pyplot as plt
@@ -11,7 +12,7 @@ def display_border(border, **kwargs):
         b = border
     plt.scatter(b[:,0], b[:,1], **kwargs)
 
-def display_std_ur_border(ur_b, std_multiplier=0.25):
+def display_std_ur_border(ur_b, std_multiplier=0.25, use_threshold=True, threshold=0.1040115024073753):
     """
     This function displays the unrolled border with the following:
         standard deviation: red
@@ -24,6 +25,8 @@ def display_std_ur_border(ur_b, std_multiplier=0.25):
         ur_b (np.array): The unrolled border.
         std_multiplier (float, optional): The threshold for the standard deviation. 
                 Defaults to 0.25.
+        use_threshold (bool, optional): Whether to use the threshold. Defaults to True.
+        threshold (float, optional): The threshold for what determines a line point.
     """
     plt.figure(figsize=(20,3))
     # gettin min mean max and std:
@@ -31,7 +34,11 @@ def display_std_ur_border(ur_b, std_multiplier=0.25):
     std = np.std(ur_b)
     max = np.max(ur_b)
     min = np.min(ur_b)
-    std_multiplied = std*std_multiplier
+    if use_threshold:
+        std_multiplied = threshold
+        mean = 0
+    else:
+        std_multiplied = std*std_multiplier
     
     print("std threshold:", std_multiplied)
     print("mean+std:", mean + std_multiplied)

@@ -150,7 +150,7 @@ def unroll_border(brdr:np.array, sampling_rate=25) -> np.array:
         lines of P1-P2 and P2-P3 and the adj term:
             sign(((m1 - m2) / (1 + m1*m2)) * adj)
         
-        See more detail and example here: https://www.desmos.com/calculator/uo4dk85igo
+        See more detail and example here: https://www.desmos.com/calculator/v0sjaq5jil
 
     Args:
         brdr (np.array): The border to unroll

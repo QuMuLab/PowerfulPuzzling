@@ -72,7 +72,7 @@ class Matcher:
         # {
         #     "border_i - segment_i": {
         #           "match_val": float,
-        #           "segment_key": "border_i - segment_i",            
+        #           "segment_key": "border_i - segment_i",
         #      }
         # }
         # before setting as 
@@ -80,7 +80,7 @@ class Matcher:
         for i in range(n):
             for j in range(i+1, n): # +1 to prevent match with self 
                 _, seg_match_val, seg_match_points = self.get_matching_segments(self.border_segments[i], 
-                                                                                    self.border_segments[j], weighting=weighting)
+                                                                                self.border_segments[j], weighting=weighting)
                 if display_borders:
                     # displaying the border contours
                     display.display_border(contours[i], c='b')

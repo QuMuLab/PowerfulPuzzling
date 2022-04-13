@@ -6,18 +6,19 @@ from src.utils import border_ops, display
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2 as cv
+
 #%%
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
 
 img_matcher = Matcher(img, borders=borders, kmeans=False)
 
 #%% getting matches
-matches = img_matcher.get_matches(weighting=[2,1])  
+matches = img_matcher.get_matches(weighting=[2.5,1])
 
-# %% displaying top 3 matches on the original image:
+# %% displaying top 5 matches on the original image:
 # displaying the original image
 plt.imshow(img)
-n_display = 6
+n_display = 5
 
 # displaying the border contours
 for match_val, (i,j), match_segs in matches[:n_display]:
