@@ -40,7 +40,7 @@ def get_orthoganol_colors(img:np.array, border:np.array, dist=10, sampling_rate=
     """Samples the colors orthogonal to the contour segment.
     
     Using this formula we can get colors within the border that are x distance way from it.
-    https://www.desmos.com/calculator/fpr5vp82vd
+    https://www.desmos.com/calculator/qrv8tuoidr
 
     Args:
         img (np.array): The image to sample colors from in yx format     

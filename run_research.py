@@ -3,6 +3,9 @@ from src.border_matching.matcher import Matcher
 from src.segmentation.get_border import get_image_and_border
 from src.segmentation.segment_border import *
 # from research.Jean.matching.segment_border import *
+# from research.Jean.matching.matchshapes_tests import *
+# from research.Jean.matching.dtw_tests import *
+
 from src.utils import border_ops, display
 from research.Jean.matching.util_functions import getting_orthoganol_colors
 
@@ -20,13 +23,14 @@ img_matcher = Matcher(img, borders, kmeans=False)
 
 #%%
 # colors, points = getting_orthoganol_colors(img, borders[0][:,0], dist=10)
-# colors, points = border_ops.get_orthoganol_colors(img, borders[0][:,0], dist=10)
-# # displaying the sampled colors 
-# plt.imshow(img)
-# for x,y,c in zip(points[:,0], points[:,1], colors):
-#     plt.scatter(x, y, c=[c/255], edgecolors= "r")
-# plt.show()
-# exit()
+colors, points = border_ops.get_orthoganol_colors(img, borders[0][:,0], dist=15)
+# displaying the sampled colors 
+plt.imshow(img)
+for x,y,c in zip(points[:,0], points[:,1], colors):
+    plt.scatter(x, y, c=[c/255], edgecolors= "w")
+display.display_border(borders[0], s=2)
+plt.show()
+exit()
 
 
 #%% Pieces 0 and 2 can connect on one side:
