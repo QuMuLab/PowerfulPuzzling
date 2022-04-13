@@ -87,7 +87,7 @@ for match_val, (i,j), match_segs in matches[:n_display]:
     
     # getting midpoint between p1 and p2:
     p3 = [(p1[0]+p2[0])/2, (p1[1]+p2[1])/2]
-    
+
     # adding a label to the line:
     plt.text(p3[0], p3[1], str(round(match_val,3)), color=line_clr, bbox=dict(facecolor='white', alpha=0.5))
     count+=1
