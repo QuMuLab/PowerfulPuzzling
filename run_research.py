@@ -1,13 +1,10 @@
 #%%
 from src.border_matching.matcher import Matcher
-from src.segmentation.get_border import get_image_and_border
-from src.segmentation.segment_border import *
-# from research.Jean.matching.segment_border import *
-# from research.Jean.matching.matchshapes_tests import *
-# from research.Jean.matching.dtw_tests import *
+from src.border_extraction.get_border import get_image_and_border
+from src.border_segmentation.segment_border import *
 
 from src.utils import border_ops, display
-from research.Jean.matching.util_functions import getting_orthoganol_colors
+from research.matching.util_functions import getting_orthoganol_colors
 
 img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
 img_matcher = Matcher(img, borders, kmeans=False)

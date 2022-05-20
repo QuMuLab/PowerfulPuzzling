@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans
 from dtw import dtw
 import numpy as np
 import cv2 as cv
-from src.segmentation import segment_border
+from src.border_segmentation import segment_border
 
 from src.utils import border_ops, display
 

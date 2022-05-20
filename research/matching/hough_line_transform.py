@@ -1,9 +1,8 @@
 """This is where we will call the functions from the powerful pluzzling algo"""
 from cmath import inf
 from turtle import shape
-from src.app import get_hint, complete_puzzle
 from src.border_matching import Matcher
-from src.segmentation.FIXME import get_image_and_border
+from src.border_extraction.get_border import get_image_and_border
 from src.utils import border_ops
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle

@@ -1,7 +1,7 @@
 #%%
 from cmath import inf
 from src.border_matching import Matcher
-from src.segmentation.get_border import get_image_and_border
+from src.border_extraction.get_border import get_image_and_border
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2 as cv

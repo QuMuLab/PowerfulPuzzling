@@ -4,9 +4,8 @@ from tkinter import E
 from turtle import color, shape
 
 from cv2 import threshold
-from src.app import get_hint, complete_puzzle
 from src.border_matching import Matcher
-from src.segmentation.FIXME import get_image_and_border
+from src.border_extraction.get_border import get_image_and_border
 from src.utils import border_ops
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
