@@ -4,13 +4,16 @@ import numpy as np
 from cmath import inf
 import matplotlib.pyplot as plt
 
-def display_border(border, **kwargs):
+def display_border(border, plot=None, **kwargs):
     if len(border.shape) != 2:
         n = border.shape[0]
         b = border.reshape(n, 2)
     else:
         b = border
-    plt.scatter(b[:,0], b[:,1], **kwargs)
+    if plot:
+        plot.scatter(b[:,0], b[:,1], **kwargs)
+    else:
+        plt.scatter(b[:,0], b[:,1], **kwargs)
 
 def display_std_ur_border(ur_b, std_multiplier=0.25, use_threshold=True, threshold=0.1040115024073753):
     """
