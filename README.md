@@ -1,3 +1,3 @@
 # PowerfulPuzzling
- 
-Start the project by running `run.py`.
+
+Run a test with `run.py`.
