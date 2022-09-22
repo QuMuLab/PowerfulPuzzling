@@ -4,6 +4,7 @@ from scipy.ndimage import filters
 from PIL import Image, ImageChops
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.colors import colorConverter, LinearSegmentedColormap
 import numpy as np
 import cv2
 
@@ -83,6 +84,28 @@ for pos, dim in zip(s_pos, s_dims):
     rect = patches.Rectangle(pos, dim[0], dim[1], linewidth=1, edgecolor='g', facecolor='none')
     ax.add_patch(rect)
 plt.show()
+
+# %% displaying the puzzle with border overlay
+
+# creating transparent color map for overlay
+sm_norm = (smooth//255)
+c_white = colorConverter.to_rgba('white',alpha = 0)
+c_black = colorConverter.to_rgba('red',alpha = .2)
+cmap_rb = LinearSegmentedColormap.from_list('rb_cmap', [c_white,c_black], 512)
+
+plt.imshow(puzzle)
+
+# drawing borders
+for border in contours:
+    b = border.reshape(-1,2) # reshape to n,2
+    plt.scatter(b[:,0], b[:,1], c='r', s=0.005)
+
+
+# overlaying mask
+plt.imshow(sm_norm, cmap=cmap_rb)
+plt.show()
+
+exit()
 
 #%% Plotting the tiles individually:
 fig, ax = plt.subplots(2,4, dpi=80)

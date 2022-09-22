@@ -18,7 +18,7 @@ img_matcher = Matcher(img, borders=borders, kmeans=False)
 print("Time to perform border unrolling and lock identification: ", time() - start)
 #%% getting matches
 start = time()
-weighting = [2,1]
+weighting = [2,1] # [2,1] is the best weighting for this image
 matches = img_matcher.get_matches(weighting=weighting)
 print("Time to filter and get matches: ", time() - start)
 
