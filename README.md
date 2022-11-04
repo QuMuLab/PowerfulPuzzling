@@ -1,9 +1,17 @@
 # PowerfulPuzzling
+Full paper can be found here: [Powerful_Puzzling.pdf](https://github.com/QuMuLab/PowerfulPuzzling/files/9941335/Powerful_Puzzling.pdf)
+
 ## Abstract
 
 The Powerful Puzzling algorithm aims to provide a solution to jigsaw puzzle solvers that are able to work with island pieces (a group of two or more connected pieces); unlike current solutions that require a fully disassembled puzzle in order to work {{<cite "Abto Software" >}}{{<cite "towardsdatascience" >}}. This makes for a more practical approach to puzzle solving that allows players the satisfaction of completing the puzzle by not requiring disassembly. The main idea behind the Powerful Puzzling algorithm that makes it work for islands is the unrolling of border contours into a 1D strip that can be segmented up and compared with other strips to find matches. This allows us to work in 1 dimension and not have to worry about performing brute force rotations and translations to get pieces to match {{<cite "DTW">}}. The main  Powerful Puzzling algorithm also uses Dynamic Time Warping (DTW) for both shape and color matching and combines the results to get a final match score. We found that when we apply a weighting of (2,1) for the shape and color score, respectively, we got the best performance with 3 out of the top 5 matches being correctly identified. The algorithm also introduces some high level filters that improve performance allowing the entire program to run in under 3s (1.5s for just matching).
 
-## Figures (rest of paper to be added soon)
+
+## Video overview
+Here is a video going over the main contributions and outcomes of the paper:
+
+https://user-images.githubusercontent.com/50300488/200052257-90cc1868-6cb5-4294-b0be-765314c32bde.mp4
+
+## Extra Figures
 |![Figure 6](./figures/mrcnn.gif)|
 |:-------------------------:|
 |***Figure 6**: The step by step process of the MRCNNs mask generation*|
