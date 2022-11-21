@@ -50,6 +50,7 @@ def get_border_segments(ur_b:np.array, b=None, sampling_rate=25, display_borders
     assert not(display_borders and b is None), "display_borders is set to True but no border is passed in."
     # Getting ratios:
     ratios = get_ratios(ur_b, threshold=threshold, gamma=gamma)
+    if ratios is None: return None, None # no ratios found (likely due to small/no border)
     
     # Finding peaks of the ratios plot using the scipy find_peaks_cwt function
     peaks = find_peaks_cwt(ratios, widths=np.ones(len(ratios))*peak_width)
@@ -97,6 +98,7 @@ def get_ratios(ur_b:np.array, threshold=0.104, gamma=0.75) -> np.array:
     Returns:
         np.array: A 1D array containing the ratios for each iteration along the unrolled border.
     """
+    if ur_b is None: return None
     ur_len = len(ur_b)
     num_line_points = 0
     num_non_line_points = 0
@@ -121,6 +123,8 @@ def get_ratios(ur_b:np.array, threshold=0.104, gamma=0.75) -> np.array:
         
         # calculating the ratio and adding to array:
         ratios.append(num_non_line_points / num_line_points)
+    
+    if len(ratios) == 0: return None
     
     return np.array(ratios)
 
@@ -182,27 +186,34 @@ def get_segment_indices(ur_b:np.array, peaks:np.array, threshold=0.104,
         # if none was found then we roll over the end of the array. This is to capture those 
         # jigsaw nodes that are on the end of the border array.
         if l_i == -1:
+            l_i = 0
             for ur_i in range(0, peak):
                 p = ur_b[ur_i]
                 if (p < threshold) and (p > -threshold): # within the threshold == line
                     l_i = ur_i + extra_width
                     break
         if r_i == -1:
+            r_i = len(ur_b) - 1
+            assert r_i >= 0 and r_i < len(ur_b), "Right index out of bounds: {}".format(r_i)
             for ur_i in range(len(ur_b)-1, peak, -1):
                 p = ur_b[ur_i]
                 if (p < threshold) and (p > -threshold): # Within the threshold == line
-                    r_i = ur_i - extra_width
+                    padd = ur_i - extra_width
+                    r_i = padd if padd >= 0 else r_i # if the padding is negative then we just use the original r_i
                     break
         
+        assert r_i >= 0 and r_i < len(ur_b), "Right index out of bounds: {}".format(r_i)
         # check to make sure the extra width doesnt cause the left or right to be out of bounds:
         l_i = l_i % len(ur_b) if l_i >= len(ur_b) else l_i
         r_i = r_i % len(ur_b) if r_i >= len(ur_b) else r_i
+        assert l_i >= 0 and l_i < len(ur_b), "Left index out of bounds: {}".format(l_i)
         
         # appending to the list of segment indexes:
         segment_indices.append(np.array([l_i, r_i])) # cast as np.array for easy computation later.
         
         # Getting the actual segment values:
         segment_val_ur = get_border_vals(l_i, r_i, ur_b, display_p=False) # unrolled border values
+        assert len(segment_val_ur) > 0, "Segment length must be greater than 0. Got length {}".format(len(segment_val_ur))
         segment_vals.append(segment_val_ur)
         
         if get_border_points:# actual border values (yx coordinates)
@@ -240,7 +251,7 @@ def get_border_vals(start:int, end:int, b:np.array, display_p=False):
     if not border_points and display_p: 
         print("Warning: display is true but border points were not passed in! Nothing will be displayed.")
         
-    if start >= end: # should always be true unless at the end of the array
+    if start > end: # should always be true unless at the end of the array
         border_vals = b[end:start]
     else: # if end < start then we have to wrap around the array
         border_vals = np.concatenate((b[end:len(b)], b[0:start]))

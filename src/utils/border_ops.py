@@ -163,7 +163,7 @@ def unroll_border(brdr:np.array, sampling_rate=25) -> np.array:
     assert len(brdr.shape) == 2, f"Segment shapes must be (n, 2)! Got {brdr.shape}."
     
     angles = [] #TODO: optimize this by preallocating
-    with np.errstate(divide='ignore', invalid='ignore'):
+    with np.errstate(divide='ignore', invalid='ignore'): # ignore divide by 0 and invalid values
         for i in range(0, brdr.shape[0]-sampling_rate, sampling_rate): # TODO: overlapping?
             p1 = brdr[i]
             p2 = brdr[i+sampling_rate//2]
@@ -189,6 +189,8 @@ def unroll_border(brdr:np.array, sampling_rate=25) -> np.array:
                 sgn = np.sign(((m1 - m2) / (1 + m1*m2)) * adj)
                 angle *= sgn
             angles.append(angle)
+    
+    if len(angles) == 0: return None # the border is too small to extract angles so we assume an angle of 0 deg
     return np.array(angles)
 
 def get_line(coeff:Tuple[float], a:int, b:int, steps=1) -> np.array:

@@ -79,19 +79,26 @@ class Matcher:
 
         for i in range(n):
             for j in range(i+1, n): # +1 to prevent match with self 
-                _, seg_match_val, seg_match_points = self.get_matching_segments(self.border_segments[i], 
-                                                                                self.border_segments[j], weighting=weighting)
-                if display_borders:
-                    # displaying the border contours
-                    display.display_border(contours[i], c='b')
-                    display.display_border(contours[j], c='b')
-                    # displaying the segment of the border contours:
-                    display.display_border(seg_match_points[0], c='y')
-                    display.display_border(seg_match_points[1], c='y')
-                    plt.title("Score: "+str(seg_match_val))
-                    plt.show()
+                # making sure that the segments are not empty
+                if ((self.border_segments[i][0] and self.border_segments[j][0]) and
+                    (len(self.border_segments[i][0]) > 0 and len(self.border_segments[j][0]) > 0)):
+                    _, seg_match_val, seg_match_points = self.get_matching_segments(self.border_segments[i], 
+                                                                                    self.border_segments[j], weighting=weighting)
+                    
+                    if seg_match_val is None: # no matching segments
+                        continue
+                    
+                    if display_borders:
+                        # displaying the border contours
+                        display.display_border(contours[i], c='b')
+                        display.display_border(contours[j], c='b')
+                        # displaying the segment of the border contours:
+                        display.display_border(seg_match_points[0], c='y')
+                        display.display_border(seg_match_points[1], c='y')
+                        plt.title("Score: "+str(seg_match_val))
+                        plt.show()
 
-                matches.append((seg_match_val, (i,j), seg_match_points))
+                    matches.append((seg_match_val, (i,j), seg_match_points))
 
         matches.sort(key=lambda x: x[0]) # Sort by match_val
         return matches
@@ -152,7 +159,9 @@ class Matcher:
                         best_match_i = (seg1_i, seg2_i)
                         best_match_val = weighted_dist
 
-        assert best_match_i != (-1,-1),  "ERROR: no best matching found."
+        if best_match_i == (-1,-1):
+            print("ERROR: no best matching found! Something wrong with segmentation, no/small borders. Try increasing sampling rate.")
+            return None, None, None
         # matches.sort(key=lambda x: x[1]) # Sort by distance
 
         return best_match_i, best_match_val, (seg_points1[best_match_i[0]], seg_points2[best_match_i[1]])

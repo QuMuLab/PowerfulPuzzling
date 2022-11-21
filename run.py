@@ -10,12 +10,14 @@ from time import time
 
 #%%
 start_1 = time()
-img, borders = get_image_and_border('dataset\\starry_night\\edge_case.jpg')
+img, borders = get_image_and_border('dataset\\starry_night\\4_fc.JPG')
 print("Time to get image and borders: ", time() - start_1)
 
+#%%
 start = time()
 img_matcher = Matcher(img, borders=borders, kmeans=False)
 print("Time to perform border unrolling and lock identification: ", time() - start)
+
 #%% getting matches
 start = time()
 weighting = [2,1] # [2,1] is the best weighting for this image
